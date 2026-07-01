@@ -1,36 +1,99 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HR Trips — Travel & Hospitality Frontend
 
-## Getting Started
+Professional, conversion-focused travel booking frontend built with **Next.js 16** (App Router, TypeScript, Tailwind CSS).
 
-First, run the development server:
+## 🚀 Quick Start
 
 ```bash
+# Install dependencies
+npm install
+
+# Copy env file and configure
+cp .env.example .env.local
+
+# Start development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📁 Folder Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+hr-trips/
+├── app/                          # Next.js App Router pages
+│   ├── layout.tsx                # Root layout (TopBar + Navbar + Footer)
+│   ├── page.tsx                  # Home page
+│   ├── holiday-packages/         # Package listing + [slug] detail
+│   ├── hotel-booking/            # Hotel listing + [slug] detail
+│   ├── services/                 # Services overview
+│   ├── about/                    # About page
+│   ├── contact/                  # Contact page
+│   ├── banquet-booking/          # Phase 2 — Coming Soon
+│   ├── event-booking/            # Phase 2 — Coming Soon
+│   ├── catering-booking/         # Phase 2 — Coming Soon
+│   ├── cab-services/             # Phase 2 — Coming Soon
+│   ├── ticketing/                # Phase 2 — Coming Soon
+│   └── manpower-services/        # Phase 2 — Coming Soon
+│
+├── components/
+│   ├── layout/                   # Navbar, Footer, TopBar, MobileMenu
+│   ├── home/                     # Hero, WhyChooseUs, ServicesGrid, etc.
+│   ├── packages/                 # PackageCard, Filters, PriceTable, etc.
+│   ├── hotels/                   # HotelCard, SearchBar, Amenities, etc.
+│   └── shared/                   # SectionHeading, Breadcrumbs, WhatsApp, etc.
+│
+├── lib/
+│   ├── api.ts                    # Typed fetch wrapper + mock data
+│   ├── types.ts                  # TypeScript interfaces
+│   ├── validators.ts             # Zod schemas for forms
+│   └── constants.ts              # Nav links, services, contact info
+│
+└── public/                       # Static assets
+```
 
-## Learn More
+## 🔗 Connecting the PHP Backend
 
-To learn more about Next.js, take a look at the following resources:
+1. Set `NEXT_PUBLIC_API_BASE_URL` in `.env.local` to your PHP API URL
+2. The API layer (`lib/api.ts`) expects these REST endpoints:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Method | Endpoint              | Description             |
+|--------|----------------------|-------------------------|
+| GET    | /api/packages         | List all packages        |
+| GET    | /api/packages/{slug}  | Package detail           |
+| GET    | /api/hotels           | List/search hotels       |
+| GET    | /api/hotels/{slug}    | Hotel detail             |
+| POST   | /api/enquiries        | Submit package enquiry   |
+| POST   | /api/bookings         | Submit hotel booking     |
+| POST   | /api/contact          | Submit contact form      |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. All responses should be JSON. The frontend gracefully falls back to mock data if the API is unavailable.
 
-## Deploy on Vercel
+## 🎨 Design System
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Brand Orange:** `#F26622` (CTAs, highlights, active states)
+- **Fonts:** Poppins (headings), Inter (body) via Google Fonts / next/font
+- **Visual:** Rounded corners, soft shadows, card-based layouts, micro-animations via Framer Motion
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📦 Key Dependencies
+
+- **Next.js 16** — React framework with App Router
+- **Tailwind CSS 4** — Utility-first CSS
+- **Framer Motion** — Animations
+- **React Hook Form + Zod** — Form validation
+- **lucide-react** — Icon library
+
+## 🏗️ Phase 2 Services (Scaffolded)
+
+The following pages exist with "Coming Soon" placeholders:
+- Banquet Booking, Event Booking, Catering Services
+- Cab Services, Ticketing, Manpower Services
+
+## 📝 Scripts
+
+```bash
+npm run dev       # Start dev server
+npm run build     # Production build
+npm run start     # Start production server
+npm run lint      # Run ESLint
+```
