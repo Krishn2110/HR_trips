@@ -140,3 +140,68 @@ export interface PackageBookingPayload {
   specialRequests?: string;
   totalPrice: number;
 }
+
+export interface Cab {
+  id: string;
+  vehicleName: string;
+  vehicleType: string;
+  pricePerKm: number;
+  capacity: number;
+  image: string;
+  description: string;
+  featured: boolean;
+}
+
+export interface Banquet {
+  id: string;
+  name: string;
+  location: string;
+  capacity: number;
+  pricePerPlateVeg: number;
+  pricePerPlateNonVeg: number;
+  image: string;
+  description: string;
+  amenities: string[];
+  featured: boolean;
+}
+
+export interface EventSetup {
+  id: string;
+  title: string;
+  eventType: string;
+  startingPrice: number;
+  image: string;
+  description: string;
+  themes: string[];
+  featured: boolean;
+}
+
+export interface CateringOption {
+  id: string;
+  packageName: string;
+  cuisineType: string;
+  pricePerPlate: number;
+  minimumGuests: number;
+  menuItems: string[];
+  image: string;
+  description: string;
+}
+
+export interface TicketOption {
+  id: string;
+  category: string;
+  provider: string;
+  priceRange: string;
+  supportLevel: string;
+  description: string;
+  features: string[];
+}
+
+export interface ManpowerOption {
+  id: string;
+  title: string;
+  category: string;
+  pricePerHour: number;
+  description: string;
+  qualifications: string[];
+}

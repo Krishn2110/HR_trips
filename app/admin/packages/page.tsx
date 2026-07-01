@@ -5,12 +5,14 @@ import { getPackages, createOrUpdatePackage, deletePackage } from "@/lib/api";
 import type { Package } from "@/lib/types";
 import { Plus, Edit2, Trash2, MapPin, Clock, X, Image as ImageIcon, Save, CheckSquare, Palmtree } from "lucide-react";
 import Image from "next/image";
+import BookingRequestsSection from "@/components/admin/BookingRequestsSection";
 
 export default function AdminPackagesPage() {
   const [packages, setPackages] = useState<Package[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPkg, setCurrentPkg] = useState<Partial<Package> | null>(null);
+  const [activeTab, setActiveTab] = useState<"catalog" | "bookings">("catalog");
   
   // Custom lists state inside form
   const [highlightInput, setHighlightInput] = useState("");
@@ -186,105 +188,135 @@ export default function AdminPackagesPage() {
         </button>
       </div>
 
-      {/* Packages Grid */}
-      {isLoading ? (
-        <div className="py-20 flex flex-col items-center justify-center text-center">
-          <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin mb-3" />
-          <p className="text-muted text-xs">Loading packages data...</p>
-        </div>
-      ) : packages.length === 0 ? (
-        <div className="py-24 text-center border-2 border-dashed border-border rounded-3xl bg-white p-8">
-          <Palmtree className="w-12 h-12 text-muted/60 mx-auto mb-4" />
-          <h3 className="font-heading font-bold text-ink text-lg">No packages found</h3>
-          <p className="text-muted text-xs max-w-xs mx-auto mt-1 mb-6">
-            Get started by creating your first holiday package to show to users.
-          </p>
-          <button
-            onClick={openAddModal}
-            className="px-5 py-3 bg-primary text-white text-xs font-semibold rounded-xl hover:bg-primary-dark transition-all cursor-pointer"
-          >
-            Create First Package
-          </button>
-        </div>
+      {/* Tabs */}
+      <div className="flex border-b border-border/40 gap-4 mb-6">
+        <button
+          onClick={() => setActiveTab("catalog")}
+          className={`pb-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === "catalog"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted hover:text-ink"
+          }`}
+        >
+          Catalog Management
+        </button>
+        <button
+          onClick={() => setActiveTab("bookings")}
+          className={`pb-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === "bookings"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted hover:text-ink"
+          }`}
+        >
+          Booking Requests
+        </button>
+      </div>
+
+      {activeTab === "bookings" ? (
+        <BookingRequestsSection filterType="packages" />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {packages.map((pkg) => (
-            <div
-              key={pkg.id}
-              className="bg-white rounded-2xl border border-border/50 shadow-sm overflow-hidden flex flex-col group hover:shadow-md transition-shadow"
-            >
-              {/* Image */}
-              <div className="relative h-48 bg-surface">
-                {pkg.image ? (
-                  <Image
-                    src={pkg.image}
-                    alt={pkg.title}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-muted">
-                    <ImageIcon className="w-8 h-8" />
-                  </div>
-                )}
-                {pkg.featured && (
-                  <span className="absolute top-3 left-3 px-2.5 py-1 bg-primary text-white text-[10px] font-bold rounded-full uppercase tracking-wider">
-                    Featured
-                  </span>
-                )}
-                <span className="absolute bottom-3 right-3 px-3 py-1 bg-black/60 backdrop-blur-sm text-white text-[10px] font-semibold rounded-full uppercase">
-                  {pkg.category}
-                </span>
-              </div>
-
-              {/* Content */}
-              <div className="p-5 flex-1 flex flex-col">
-                <div className="flex items-center gap-3 text-muted text-xs mb-2">
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-                    {pkg.destination}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-primary shrink-0" />
-                    {pkg.duration}
-                  </span>
-                </div>
-
-                <h3 className="font-heading font-semibold text-ink text-base mb-3 group-hover:text-primary transition-colors">
-                  {pkg.title}
-                </h3>
-
-                <div className="flex items-center justify-between mt-auto pt-4 border-t border-border/40">
-                  <div>
-                    <span className="text-[10px] text-muted block">Starting Price</span>
-                    <span className="font-heading font-black text-lg text-primary">
-                      ₹{pkg.startingPrice.toLocaleString("en-IN")}
+        <>
+          {/* Packages Grid */}
+          {isLoading ? (
+            <div className="py-20 flex flex-col items-center justify-center text-center">
+              <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin mb-3" />
+              <p className="text-muted text-xs">Loading packages data...</p>
+            </div>
+          ) : packages.length === 0 ? (
+            <div className="py-24 text-center border-2 border-dashed border-border rounded-3xl bg-white p-8">
+              <Palmtree className="w-12 h-12 text-muted/60 mx-auto mb-4" />
+              <h3 className="font-heading font-bold text-ink text-lg">No packages found</h3>
+              <p className="text-muted text-xs max-w-xs mx-auto mt-1 mb-6">
+                Get started by creating your first holiday package to show to users.
+              </p>
+              <button
+                onClick={openAddModal}
+                className="px-5 py-3 bg-primary text-white text-xs font-semibold rounded-xl hover:bg-primary-dark transition-all cursor-pointer"
+              >
+                Create First Package
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {packages.map((pkg) => (
+                <div
+                  key={pkg.id}
+                  className="bg-white rounded-2xl border border-border/50 shadow-sm overflow-hidden flex flex-col group hover:shadow-md transition-shadow"
+                >
+                  {/* Image */}
+                  <div className="relative h-48 bg-surface">
+                    {pkg.image ? (
+                      <Image
+                        src={pkg.image}
+                        alt={pkg.title}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-muted">
+                        <ImageIcon className="w-8 h-8" />
+                      </div>
+                    )}
+                    {pkg.featured && (
+                      <span className="absolute top-3 left-3 px-2.5 py-1 bg-primary text-white text-[10px] font-bold rounded-full uppercase tracking-wider">
+                        Featured
+                      </span>
+                    )}
+                    <span className="absolute bottom-3 right-3 px-3 py-1 bg-black/60 backdrop-blur-sm text-white text-[10px] font-semibold rounded-full uppercase">
+                      {pkg.category}
                     </span>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => openEditModal(pkg)}
-                      className="p-2 bg-surface hover:bg-primary-light text-ink hover:text-primary rounded-xl border border-border/50 transition-all cursor-pointer"
-                      title="Edit Package"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(pkg.id)}
-                      className="p-2 bg-surface hover:bg-red-50 text-ink hover:text-red-500 rounded-xl border border-border/50 transition-all cursor-pointer"
-                      title="Delete Package"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                  {/* Content */}
+                  <div className="p-5 flex-1 flex flex-col">
+                    <div className="flex items-center gap-3 text-muted text-xs mb-2">
+                      <span className="flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                        {pkg.destination}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-primary shrink-0" />
+                        {pkg.duration}
+                      </span>
+                    </div>
+
+                    <h3 className="font-heading font-semibold text-ink text-base mb-3 group-hover:text-primary transition-colors">
+                      {pkg.title}
+                    </h3>
+
+                    <div className="flex items-center justify-between mt-auto pt-4 border-t border-border/40">
+                      <div>
+                        <span className="text-[10px] text-muted block">Starting Price</span>
+                        <span className="font-heading font-black text-lg text-primary">
+                          ₹{pkg.startingPrice.toLocaleString("en-IN")}
+                        </span>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => openEditModal(pkg)}
+                          className="p-2 bg-surface hover:bg-primary-light text-ink hover:text-primary rounded-xl border border-border/50 transition-all cursor-pointer"
+                          title="Edit Package"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(pkg.id)}
+                          className="p-2 bg-surface hover:bg-red-50 text-ink hover:text-red-500 rounded-xl border border-border/50 transition-all cursor-pointer"
+                          title="Delete Package"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
       {/* Editor Modal Overlay */}

@@ -3,7 +3,23 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { LayoutDashboard, Palmtree, Globe, LogOut, ShieldCheck, Menu, X, User } from "lucide-react";
+import { 
+  LayoutDashboard, 
+  Palmtree, 
+  Globe, 
+  LogOut, 
+  ShieldCheck, 
+  Menu, 
+  X, 
+  User,
+  Hotel,
+  Car,
+  GlassWater,
+  Sparkles,
+  Utensils,
+  Ticket,
+  Briefcase
+} from "lucide-react";
 
 export default function AdminLayout({
   children,
@@ -40,9 +56,44 @@ export default function AdminLayout({
       icon: LayoutDashboard,
     },
     {
-      label: "Manage Packages",
+      label: "Packages",
       href: "/admin/packages",
       icon: Palmtree,
+    },
+    {
+      label: "Hotels",
+      href: "/admin/hotels",
+      icon: Hotel,
+    },
+    {
+      label: "Cabs",
+      href: "/admin/cabs",
+      icon: Car,
+    },
+    {
+      label: "Banquets",
+      href: "/admin/banquets",
+      icon: GlassWater,
+    },
+    {
+      label: "Events",
+      href: "/admin/events",
+      icon: Sparkles,
+    },
+    {
+      label: "Catering",
+      href: "/admin/catering",
+      icon: Utensils,
+    },
+    {
+      label: "Ticketing",
+      href: "/admin/ticketing",
+      icon: Ticket,
+    },
+    {
+      label: "Manpower",
+      href: "/admin/manpower",
+      icon: Briefcase,
     },
   ];
 
