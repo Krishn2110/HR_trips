@@ -160,6 +160,7 @@ export default async function PackageDetailPage({ params }: PageProps) {
               <PackageEnquiryForm
                 packageId={pkg.id}
                 packageTitle={pkg.title}
+                pricing={pkg.pricing}
               />
 
               <div className="mt-4 p-4 bg-surface rounded-xl text-center">

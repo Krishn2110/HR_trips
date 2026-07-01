@@ -70,3 +70,33 @@ export const contactSchema = z.object({
 });
 
 export type ContactFormData = z.infer<typeof contactSchema>;
+
+// ── Admin Login Schema ──────────────────────────────────────
+export const adminLoginSchema = z.object({
+  email: z.string().email("Enter a valid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+export type AdminLoginFormData = z.infer<typeof adminLoginSchema>;
+
+// ── Admin Package Schema ────────────────────────────────────
+export const adminPackageSchema = z.object({
+  title: z
+    .string()
+    .min(5, "Title must be at least 5 characters")
+    .max(150, "Title is too long"),
+  destination: z.string().min(2, "Destination must be at least 2 characters"),
+  duration: z.string().min(2, "Duration must be specified (e.g. 4 Nights / 5 Days)"),
+  startingPrice: z
+    .number({ error: "Starting price must be a valid number" })
+    .min(100, "Price must be at least ₹100"),
+  overview: z
+    .string()
+    .min(20, "Overview description must be at least 20 characters"),
+  highlights: z.array(z.string()).min(1, "Add at least one highlight"),
+  placesCovered: z.array(z.string()).min(1, "Add at least one place covered"),
+  category: z.enum(["domestic", "international"]),
+  featured: z.boolean().default(false),
+});
+
+export type AdminPackageFormData = z.infer<typeof adminPackageSchema>;

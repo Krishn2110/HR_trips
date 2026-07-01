@@ -3,26 +3,32 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Send, Loader2, CheckCircle2 } from "lucide-react";
+import { Send, Loader2, CheckCircle2, ShieldCheck, Ticket } from "lucide-react";
 import { enquirySchema, type EnquiryFormData } from "@/lib/validators";
-import { submitEnquiry } from "@/lib/api";
+import { submitEnquiry, submitPackageBooking } from "@/lib/api";
+import type { PricingTier } from "@/lib/types";
 
 interface PackageEnquiryFormProps {
-  packageId?: string;
-  packageTitle?: string;
+  packageId: string;
+  packageTitle: string;
+  pricing: PricingTier[];
 }
 
 export default function PackageEnquiryForm({
   packageId,
   packageTitle,
+  pricing,
 }: PackageEnquiryFormProps) {
+  const [activeTab, setActiveTab] = useState<"enquiry" | "booking">("enquiry");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [selectedPlanIdx, setSelectedPlanIdx] = useState(0);
 
+  // Quick Enquiry Form
   const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
+    register: registerEnquiry,
+    handleSubmit: handleEnquirySubmit,
+    reset: resetEnquiry,
+    formState: { errors: enquiryErrors },
   } = useForm<EnquiryFormData>({
     resolver: zodResolver(enquirySchema),
     defaultValues: {
@@ -30,7 +36,38 @@ export default function PackageEnquiryForm({
     },
   });
 
-  const onSubmit = async (data: EnquiryFormData) => {
+  // Direct Booking Form (Manual fields validation to allow custom pricing integrations)
+  const [bookingFields, setBookingFields] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    travelDate: "",
+    guests: 2,
+    specialRequests: "",
+  });
+  const [bookingErrors, setBookingErrors] = useState<Record<string, string>>({});
+
+  const handleBookingChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setBookingFields((prev) => ({
+      ...prev,
+      [name]: name === "guests" ? Number(value) : value,
+    }));
+  };
+
+  const validateBooking = () => {
+    const errs: Record<string, string> = {};
+    if (!bookingFields.name.trim()) errs.name = "Name is required";
+    if (!bookingFields.phone.trim() || bookingFields.phone.length < 10) errs.phone = "Valid phone is required";
+    if (!bookingFields.email.trim() || !bookingFields.email.includes("@")) errs.email = "Valid email is required";
+    if (!bookingFields.travelDate) errs.travelDate = "Please pick a date";
+    if (bookingFields.guests <= 0) errs.guests = "At least 1 guest required";
+
+    setBookingErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  const onEnquirySubmit = async (data: EnquiryFormData) => {
     setStatus("loading");
     try {
       await submitEnquiry({
@@ -40,7 +77,48 @@ export default function PackageEnquiryForm({
         message: data.message || "",
       });
       setStatus("success");
-      reset();
+      resetEnquiry();
+      setTimeout(() => setStatus("idle"), 4000);
+    } catch {
+      setStatus("error");
+      setTimeout(() => setStatus("idle"), 3000);
+    }
+  };
+
+  const onBookingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateBooking()) return;
+
+    setStatus("loading");
+    const activePlan = pricing[selectedPlanIdx] || {
+      hotelCategory: "Standard Package",
+      plan: "MAP Plan",
+      pricePerPerson: 1000,
+    };
+    
+    const totalPrice = activePlan.pricePerPerson * bookingFields.guests;
+
+    try {
+      await submitPackageBooking({
+        name: bookingFields.name,
+        phone: bookingFields.phone,
+        email: bookingFields.email,
+        travelDate: bookingFields.travelDate,
+        guests: bookingFields.guests,
+        packageId,
+        pricingPlan: `${activePlan.hotelCategory} (${activePlan.plan}) - ₹${activePlan.pricePerPerson}/Person`,
+        specialRequests: bookingFields.specialRequests,
+        totalPrice,
+      });
+      setStatus("success");
+      setBookingFields({
+        name: "",
+        phone: "",
+        email: "",
+        travelDate: "",
+        guests: 2,
+        specialRequests: "",
+      });
       setTimeout(() => setStatus("idle"), 4000);
     } catch {
       setStatus("error");
@@ -50,132 +128,297 @@ export default function PackageEnquiryForm({
 
   if (status === "success") {
     return (
-      <div className="bg-white rounded-2xl border border-border/50 p-8 text-center">
+      <div className="bg-white rounded-2xl border border-border/50 p-8 text-center shadow-lg">
         <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-4" />
         <h3 className="font-heading font-semibold text-ink text-lg mb-2">
-          Enquiry Submitted!
+          {activeTab === "booking" ? "Booking Requested!" : "Enquiry Submitted!"}
         </h3>
-        <p className="text-muted text-sm">
-          Thank you! Our team will contact you shortly with the best deals.
+        <p className="text-muted text-sm leading-relaxed">
+          {activeTab === "booking"
+            ? "Thank you! Your direct tour booking has been logged. Our travel desk will contact you with invoice details."
+            : "Thank you! Our team will contact you shortly with the best deals and answers to your questions."}
         </p>
       </div>
     );
   }
 
+  // Live Total Price Calculation for booking
+  const selectedPlan = pricing[selectedPlanIdx];
+  const totalPrice = selectedPlan ? selectedPlan.pricePerPerson * bookingFields.guests : 0;
+
   return (
-    <div className="bg-white rounded-2xl border border-border/50 p-6 lg:p-8">
-      <h3 className="font-heading font-semibold text-ink text-lg mb-1">
-        Send Enquiry
-      </h3>
-      {packageTitle && (
-        <p className="text-muted text-sm mb-6">
-          Interested in <span className="text-primary font-medium">{packageTitle}</span>
-        </p>
-      )}
-
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        {/* Name */}
-        <div>
-          <input
-            {...register("name")}
-            placeholder="Your Name *"
-            className="w-full px-4 py-3 bg-surface rounded-xl text-sm text-ink border border-border focus:border-primary transition-colors"
-          />
-          {errors.name && (
-            <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>
-          )}
-        </div>
-
-        {/* Phone */}
-        <div>
-          <input
-            {...register("phone")}
-            placeholder="Phone Number *"
-            className="w-full px-4 py-3 bg-surface rounded-xl text-sm text-ink border border-border focus:border-primary transition-colors"
-          />
-          {errors.phone && (
-            <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>
-          )}
-        </div>
-
-        {/* Email */}
-        <div>
-          <input
-            {...register("email")}
-            type="email"
-            placeholder="Email Address *"
-            className="w-full px-4 py-3 bg-surface rounded-xl text-sm text-ink border border-border focus:border-primary transition-colors"
-          />
-          {errors.email && (
-            <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>
-          )}
-        </div>
-
-        {/* Travel Date + Pax */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <input
-              {...register("travelDate")}
-              type="date"
-              className="w-full px-4 py-3 bg-surface rounded-xl text-sm text-ink border border-border focus:border-primary transition-colors"
-            />
-            {errors.travelDate && (
-              <p className="text-red-500 text-xs mt-1">
-                {errors.travelDate.message}
-              </p>
-            )}
-          </div>
-          <div>
-            <input
-              {...register("paxCount", { valueAsNumber: true })}
-              type="number"
-              min={1}
-              placeholder="Travelers"
-              className="w-full px-4 py-3 bg-surface rounded-xl text-sm text-ink border border-border focus:border-primary transition-colors"
-            />
-            {errors.paxCount && (
-              <p className="text-red-500 text-xs mt-1">
-                {errors.paxCount.message}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Message */}
-        <div>
-          <textarea
-            {...register("message")}
-            rows={3}
-            placeholder="Any special requirements? (optional)"
-            className="w-full px-4 py-3 bg-surface rounded-xl text-sm text-ink border border-border focus:border-primary transition-colors resize-none"
-          />
-        </div>
-
-        {/* Submit */}
+    <div className="bg-white rounded-2xl border border-border/50 shadow-md overflow-hidden">
+      {/* Dynamic Tab Switcher */}
+      <div className="grid grid-cols-2 border-b border-border/40 bg-surface/40 p-1.5 gap-1">
         <button
-          type="submit"
-          disabled={status === "loading"}
-          className="w-full px-6 py-3.5 bg-gradient-to-r from-primary to-primary-dark text-white font-semibold rounded-xl flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-primary/25 active:scale-[0.98] transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+          onClick={() => setActiveTab("enquiry")}
+          className={`py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer text-center ${
+            activeTab === "enquiry"
+              ? "bg-white text-primary shadow-sm border border-border/30"
+              : "text-muted hover:text-ink"
+          }`}
         >
-          {status === "loading" ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Submitting...
-            </>
-          ) : (
-            <>
-              <Send className="w-4 h-4" />
-              Submit Enquiry
-            </>
-          )}
+          Send Enquiry
         </button>
+        <button
+          onClick={() => setActiveTab("booking")}
+          className={`py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer text-center ${
+            activeTab === "booking"
+              ? "bg-white text-primary shadow-sm border border-border/30"
+              : "text-muted hover:text-ink"
+          }`}
+        >
+          Book Now
+        </button>
+      </div>
+
+      <div className="p-6">
+        <h3 className="font-heading font-bold text-ink text-base mb-1">
+          {activeTab === "booking" ? "Book This Tour" : "Enquiry Form"}
+        </h3>
+        <p className="text-muted text-xs mb-5">
+          {activeTab === "booking" 
+            ? "Reserve your dates directly and secure your pricing plan." 
+            : `Interested in ${packageTitle}? Ask a question below.`}
+        </p>
+
+        {/* Tab 1: Enquiry Form */}
+        {activeTab === "enquiry" && (
+          <form onSubmit={handleEnquirySubmit(onEnquirySubmit)} className="space-y-4">
+            <div>
+              <input
+                {...registerEnquiry("name")}
+                placeholder="Your Name *"
+                className="w-full px-4 py-2.5 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none transition-colors"
+              />
+              {enquiryErrors.name && (
+                <p className="text-red-500 text-[10px] mt-1">{enquiryErrors.name.message}</p>
+              )}
+            </div>
+
+            <div>
+              <input
+                {...registerEnquiry("phone")}
+                placeholder="Phone Number *"
+                className="w-full px-4 py-2.5 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none transition-colors"
+              />
+              {enquiryErrors.phone && (
+                <p className="text-red-500 text-[10px] mt-1">{enquiryErrors.phone.message}</p>
+              )}
+            </div>
+
+            <div>
+              <input
+                {...registerEnquiry("email")}
+                type="email"
+                placeholder="Email Address *"
+                className="w-full px-4 py-2.5 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none transition-colors"
+              />
+              {enquiryErrors.email && (
+                <p className="text-red-500 text-[10px] mt-1">{enquiryErrors.email.message}</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <input
+                  {...registerEnquiry("travelDate")}
+                  type="date"
+                  className="w-full px-4 py-2.5 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none transition-colors"
+                />
+                {enquiryErrors.travelDate && (
+                  <p className="text-red-500 text-[10px] mt-1">
+                    {enquiryErrors.travelDate.message}
+                  </p>
+                )}
+              </div>
+              <div>
+                <input
+                  {...registerEnquiry("paxCount", { valueAsNumber: true })}
+                  type="number"
+                  min={1}
+                  placeholder="Travelers"
+                  className="w-full px-4 py-2.5 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none transition-colors"
+                />
+                {enquiryErrors.paxCount && (
+                  <p className="text-red-500 text-[10px] mt-1">
+                    {enquiryErrors.paxCount.message}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <textarea
+                {...registerEnquiry("message")}
+                rows={3}
+                placeholder="Any special requirements? (optional)"
+                className="w-full px-4 py-2.5 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none transition-colors resize-none"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={status === "loading"}
+              className="w-full py-3 bg-gradient-to-r from-primary to-primary-dark text-white font-semibold rounded-xl flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-primary/25 active:scale-[0.98] transition-all cursor-pointer text-xs"
+            >
+              {status === "loading" ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" />
+                  Submit Enquiry
+                </>
+              )}
+            </button>
+          </form>
+        )}
+
+        {/* Tab 2: Direct Booking Form */}
+        {activeTab === "booking" && (
+          <form onSubmit={onBookingSubmit} className="space-y-4">
+            <div>
+              <input
+                type="text"
+                name="name"
+                required
+                value={bookingFields.name}
+                onChange={handleBookingChange}
+                placeholder="Customer Name *"
+                className="w-full px-4 py-2.5 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none transition-colors"
+              />
+              {bookingErrors.name && <p className="text-red-500 text-[10px] mt-1">{bookingErrors.name}</p>}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <input
+                  type="text"
+                  name="phone"
+                  required
+                  value={bookingFields.phone}
+                  onChange={handleBookingChange}
+                  placeholder="Phone Number *"
+                  className="w-full px-4 py-2.5 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none transition-colors"
+                />
+                {bookingErrors.phone && <p className="text-red-500 text-[10px] mt-1">{bookingErrors.phone}</p>}
+              </div>
+              <div>
+                <input
+                  type="email"
+                  name="email"
+                  required
+                  value={bookingFields.email}
+                  onChange={handleBookingChange}
+                  placeholder="Email Address *"
+                  className="w-full px-4 py-2.5 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none transition-colors"
+                />
+                {bookingErrors.email && <p className="text-red-500 text-[10px] mt-1">{bookingErrors.email}</p>}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <input
+                  type="date"
+                  name="travelDate"
+                  required
+                  value={bookingFields.travelDate}
+                  onChange={handleBookingChange}
+                  className="w-full px-4 py-2.5 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none transition-colors"
+                />
+                {bookingErrors.travelDate && <p className="text-red-500 text-[10px] mt-1">{bookingErrors.travelDate}</p>}
+              </div>
+              <div>
+                <input
+                  type="number"
+                  name="guests"
+                  required
+                  min={1}
+                  value={bookingFields.guests}
+                  onChange={handleBookingChange}
+                  placeholder="Travelers *"
+                  className="w-full px-4 py-2.5 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none transition-colors"
+                />
+                {bookingErrors.guests && <p className="text-red-500 text-[10px] mt-1">{bookingErrors.guests}</p>}
+              </div>
+            </div>
+
+            {/* Dynamic Plan Selector */}
+            {pricing && pricing.length > 0 && (
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-muted mb-1">
+                  Select Hotel Plan / Category
+                </label>
+                <select
+                  value={selectedPlanIdx}
+                  onChange={(e) => setSelectedPlanIdx(Number(e.target.value))}
+                  className="w-full px-3 py-2.5 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none cursor-pointer"
+                >
+                  {pricing.map((p, idx) => (
+                    <option key={idx} value={idx}>
+                      {p.hotelCategory} ({p.plan}) — ₹{p.pricePerPerson.toLocaleString("en-IN")}/pp
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div>
+              <textarea
+                name="specialRequests"
+                rows={2}
+                value={bookingFields.specialRequests}
+                onChange={handleBookingChange}
+                placeholder="Any special requests? (Bed type, food choice, etc.)"
+                className="w-full px-4 py-2.5 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none transition-colors resize-none"
+              />
+            </div>
+
+            {/* Total Price Display */}
+            {selectedPlan && (
+              <div className="p-3.5 bg-primary-light border border-primary/10 rounded-xl flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] text-muted block uppercase tracking-wider font-semibold">Total Price Estimate</span>
+                  <span className="font-heading font-black text-base text-primary">
+                    ₹{totalPrice.toLocaleString("en-IN")}
+                  </span>
+                </div>
+                <div className="text-[10px] text-muted font-medium text-right">
+                  ₹{selectedPlan.pricePerPerson.toLocaleString("en-IN")} x {bookingFields.guests} pax
+                </div>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={status === "loading"}
+              className="w-full py-3.5 bg-gradient-to-r from-primary to-primary-dark text-white font-semibold rounded-xl flex items-center justify-center gap-2 hover:shadow-lg active:scale-[0.98] transition-all cursor-pointer text-xs"
+            >
+              {status === "loading" ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Requesting Booking...
+                </>
+              ) : (
+                <>
+                  <Ticket className="w-4 h-4" />
+                  Confirm Booking Request
+                </>
+              )}
+            </button>
+          </form>
+        )}
 
         {status === "error" && (
-          <p className="text-red-500 text-sm text-center">
+          <p className="text-red-500 text-xs text-center mt-3">
             Something went wrong. Please try again or call us directly.
           </p>
         )}
-      </form>
+      </div>
     </div>
   );
 }

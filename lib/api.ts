@@ -5,6 +5,7 @@ import type {
   EnquiryPayload,
   BookingPayload,
   ContactPayload,
+  PackageBookingPayload,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "";
@@ -37,12 +38,54 @@ async function apiFetch<T>(
   }
 }
 
+// ── Helper to check browser environment and keys ─────────────
+const isBrowser = typeof window !== "undefined";
+const PACKAGES_KEY = "hr_trips_packages";
+const BOOKINGS_KEY = "hr_trips_bookings";
+
+// Get packages from localStorage or fallback to MOCK_PACKAGES
+function getLocalPackages(): Package[] {
+  if (!isBrowser) return MOCK_PACKAGES;
+  const data = localStorage.getItem(PACKAGES_KEY);
+  if (!data) {
+    localStorage.setItem(PACKAGES_KEY, JSON.stringify(MOCK_PACKAGES));
+    return MOCK_PACKAGES;
+  }
+  return JSON.parse(data);
+}
+
+// Save packages list
+function saveLocalPackages(packages: Package[]) {
+  if (isBrowser) {
+    localStorage.setItem(PACKAGES_KEY, JSON.stringify(packages));
+  }
+}
+
+// Pre-populate bookings in local storage
+const INITIAL_BOOKINGS: any[] = [];
+
+function getLocalBookings(): any[] {
+  if (!isBrowser) return INITIAL_BOOKINGS;
+  const data = localStorage.getItem(BOOKINGS_KEY);
+  if (!data) {
+    localStorage.setItem(BOOKINGS_KEY, JSON.stringify(INITIAL_BOOKINGS));
+    return INITIAL_BOOKINGS;
+  }
+  return JSON.parse(data);
+}
+
+function saveLocalBookings(bookings: any[]) {
+  if (isBrowser) {
+    localStorage.setItem(BOOKINGS_KEY, JSON.stringify(bookings));
+  }
+}
+
 // ── Packages ────────────────────────────────────────────────
 export async function getPackages(): Promise<Package[]> {
   try {
     return await apiFetch<Package[]>("/api/packages");
   } catch {
-    return MOCK_PACKAGES;
+    return getLocalPackages();
   }
 }
 
@@ -52,7 +95,65 @@ export async function getPackageBySlug(
   try {
     return await apiFetch<Package>(`/api/packages/${slug}`);
   } catch {
-    return MOCK_PACKAGES.find((p) => p.slug === slug);
+    return getLocalPackages().find((p) => p.slug === slug);
+  }
+}
+
+// Admin CRUD functions
+export async function createOrUpdatePackage(pkg: Omit<Package, "id" | "slug"> & { id?: string }): Promise<Package> {
+  try {
+    if (pkg.id) {
+      return await apiFetch<Package>(`/api/admin/packages/${pkg.id}`, {
+        method: "PUT",
+        body: JSON.stringify(pkg),
+      });
+    } else {
+      return await apiFetch<Package>("/api/admin/packages", {
+        method: "POST",
+        body: JSON.stringify(pkg),
+      });
+    }
+  } catch {
+    const packages = getLocalPackages();
+    let savedPkg: Package;
+    
+    if (pkg.id) {
+      const index = packages.findIndex(p => p.id === pkg.id);
+      if (index === -1) throw new Error("Package not found");
+      const existing = packages[index];
+      savedPkg = {
+        ...existing,
+        ...pkg,
+        slug: pkg.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "")
+      } as Package;
+      packages[index] = savedPkg;
+    } else {
+      savedPkg = {
+        ...pkg,
+        id: Math.random().toString(36).substr(2, 9),
+        slug: pkg.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, ""),
+        images: pkg.image ? [pkg.image] : []
+      } as Package;
+      packages.push(savedPkg);
+    }
+    
+    saveLocalPackages(packages);
+    return savedPkg;
+  }
+}
+
+export async function deletePackage(id: string): Promise<boolean> {
+  try {
+    const res = await apiFetch<{ success: boolean }>(`/api/admin/packages/${id}`, {
+      method: "DELETE",
+    });
+    return res.success;
+  } catch {
+    const packages = getLocalPackages();
+    const filtered = packages.filter(p => p.id !== id);
+    if (packages.length === filtered.length) return false;
+    saveLocalPackages(filtered);
+    return true;
   }
 }
 
@@ -90,7 +191,24 @@ export async function submitEnquiry(
       body: JSON.stringify(payload),
     });
   } catch {
-    // Mock success for development
+    // Save to local storage bookings database
+    const bookings = getLocalBookings();
+    const pkg = getLocalPackages().find(p => p.id === payload.packageId);
+    
+    bookings.push({
+      id: `req-${Math.random().toString(36).substr(2, 9)}`,
+      type: "Package Enquiry",
+      name: payload.name,
+      email: payload.email,
+      phone: payload.phone,
+      itemName: pkg ? pkg.title : "Holiday Package Request",
+      date: payload.travelDate,
+      guests: payload.paxCount,
+      status: "Pending",
+      createdAt: new Date().toISOString()
+    });
+    saveLocalBookings(bookings);
+    
     console.log("Enquiry submitted (mock):", payload);
     return { success: true };
   }
@@ -105,6 +223,24 @@ export async function submitBooking(
       body: JSON.stringify(payload),
     });
   } catch {
+    // Save to local storage bookings database
+    const bookings = getLocalBookings();
+    const hotel = MOCK_HOTELS.find(h => h.id === payload.hotelId);
+    
+    bookings.push({
+      id: `req-${Math.random().toString(36).substr(2, 9)}`,
+      type: "Hotel Booking",
+      name: payload.name,
+      email: payload.email,
+      phone: payload.phone,
+      itemName: hotel ? `${hotel.name} (${payload.roomType})` : "Hotel Room Request",
+      date: `${payload.checkin} to ${payload.checkout}`,
+      guests: payload.guests,
+      status: "Pending",
+      createdAt: new Date().toISOString()
+    });
+    saveLocalBookings(bookings);
+
     console.log("Booking submitted (mock):", payload);
     return { success: true };
   }
@@ -119,8 +255,111 @@ export async function submitContact(
       body: JSON.stringify(payload),
     });
   } catch {
+    // Save contact enquiry to bookings database
+    const bookings = getLocalBookings();
+    bookings.push({
+      id: `req-${Math.random().toString(36).substr(2, 9)}`,
+      type: "Contact Request",
+      name: payload.name,
+      email: payload.email,
+      phone: payload.phone,
+      itemName: payload.service === "other" ? "General Request" : payload.service,
+      date: "N/A",
+      guests: 1,
+      status: "Pending",
+      createdAt: new Date().toISOString()
+    });
+    saveLocalBookings(bookings);
+
     console.log("Contact submitted (mock):", payload);
     return { success: true };
+  }
+}
+
+export async function submitPackageBooking(
+  payload: PackageBookingPayload
+): Promise<{ success: boolean }> {
+  try {
+    return await apiFetch<{ success: boolean }>("/api/package-bookings", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    // Save to local storage bookings database for testing fallback
+    const bookings = getLocalBookings();
+    const pkg = getLocalPackages().find((p) => p.id === payload.packageId);
+    
+    bookings.push({
+      id: `req-${Math.random().toString(36).substr(2, 9)}`,
+      type: "Package Booking",
+      name: payload.name,
+      email: payload.email,
+      phone: payload.phone,
+      itemName: `${pkg ? pkg.title : "Holiday Tour Booking"} (${payload.pricingPlan})`,
+      date: payload.travelDate,
+      guests: payload.guests,
+      status: "Pending",
+      createdAt: new Date().toISOString()
+    });
+    saveLocalBookings(bookings);
+
+    console.log("Package booking submitted (mock):", payload);
+    return { success: true };
+  }
+}
+
+// Admin Enquiry/Booking management functions
+export async function getAdminBookings(): Promise<any[]> {
+  try {
+    return await apiFetch<any[]>("/api/admin/bookings");
+  } catch {
+    return getLocalBookings();
+  }
+}
+
+export async function createAdminBooking(booking: any): Promise<any> {
+  try {
+    return await apiFetch<any>("/api/admin/bookings", {
+      method: "POST",
+      body: JSON.stringify(booking),
+    });
+  } catch {
+    const bookings = getLocalBookings();
+    bookings.push(booking);
+    saveLocalBookings(bookings);
+    return booking;
+  }
+}
+
+export async function deleteAdminBooking(id: string): Promise<boolean> {
+  try {
+    const res = await apiFetch<{ success: boolean }>(`/api/admin/bookings/${id}`, {
+      method: "DELETE",
+    });
+    return res.success;
+  } catch {
+    const bookings = getLocalBookings();
+    const filtered = bookings.filter((b) => b.id !== id);
+    if (bookings.length === filtered.length) return false;
+    saveLocalBookings(filtered);
+    return true;
+  }
+}
+
+export async function updateBookingStatus(id: string, status: string): Promise<boolean> {
+  try {
+    const res = await apiFetch<{ success: boolean }>(`/api/admin/bookings/${id}/status`, {
+      method: "POST",
+      body: JSON.stringify({ status }),
+    });
+    return res.success;
+  } catch {
+    const bookings = getLocalBookings();
+    const index = bookings.findIndex((b) => b.id === id);
+    if (index === -1) return false;
+    bookings[index].status = status;
+    saveLocalBookings(bookings);
+    return true;
   }
 }
 
@@ -292,6 +531,8 @@ export const MOCK_PACKAGES: Package[] = [
       "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1920&q=90",
     images: [
       "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1920&q=90",
+      "https://images.unsplash.com/photo-1546182990-dffeafbe841d?w=1920&q=90",
+      "https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?w=1920&q=90",
     ],
     overview:
       "Enjoy a refreshing day out at the spectacular Kakolat Waterfall and visit the spiritually significant and peaceful Jal Mandir in Pawapuri.",
@@ -336,6 +577,8 @@ export const MOCK_PACKAGES: Package[] = [
       "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1920&q=90",
     images: [
       "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1920&q=90",
+      "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1920&q=90",
+      "https://images.unsplash.com/photo-1501854140801-50d01698950b?w=1920&q=90",
     ],
     overview:
       "Discover the historical marvels and breathtaking natural waterfalls of Rohtas on this quick and exciting weekend getaway.",
@@ -375,7 +618,7 @@ export const MOCK_PACKAGES: Package[] = [
     category: "domestic",
     featured: true,
   },
-];;
+];
 
 const MOCK_HOTELS: Hotel[] = [
   {
@@ -387,11 +630,11 @@ const MOCK_HOTELS: Hotel[] = [
     starRating: 3,
     startingPrice: 1899,
     image:
-      "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80",
+      "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1920&q=90",
     images: [
-      "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&q=80",
-      "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800&q=80",
-      "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&q=80",
+      "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1920&q=90",
+      "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=1920&q=90",
+      "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=1920&q=90",
     ],
     overview:
       "Located in the heart of Patna, Hotel Royal Inn offers comfortable rooms, modern amenities, and warm hospitality. Perfect for business and leisure travelers.",
@@ -412,7 +655,7 @@ const MOCK_HOTELS: Hotel[] = [
         pricePerNight: 1899,
         maxGuests: 2,
         image:
-          "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&q=80",
+          "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=1920&q=90",
       },
       {
         name: "Deluxe Room",
@@ -420,7 +663,7 @@ const MOCK_HOTELS: Hotel[] = [
         pricePerNight: 2899,
         maxGuests: 3,
         image:
-          "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800&q=80",
+          "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=1920&q=90",
       },
       {
         name: "Suite",
@@ -429,7 +672,7 @@ const MOCK_HOTELS: Hotel[] = [
         pricePerNight: 4499,
         maxGuests: 4,
         image:
-          "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800&q=80",
+          "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=1920&q=90",
       },
     ],
     cancellationPolicy:
@@ -445,10 +688,10 @@ const MOCK_HOTELS: Hotel[] = [
     starRating: 4,
     startingPrice: 3499,
     image:
-      "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800&q=80",
+      "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=1920&q=90",
     images: [
-      "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800&q=80",
-      "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800&q=80",
+      "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=1920&q=90",
+      "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=1920&q=90",
     ],
     overview:
       "A premium beachside resort in Calangute with pool, spa, and direct beach access. Enjoy Goan hospitality at its finest.",
@@ -470,7 +713,7 @@ const MOCK_HOTELS: Hotel[] = [
         pricePerNight: 3499,
         maxGuests: 2,
         image:
-          "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&q=80",
+          "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=1920&q=90",
       },
       {
         name: "Pool View Room",
@@ -478,7 +721,7 @@ const MOCK_HOTELS: Hotel[] = [
         pricePerNight: 4999,
         maxGuests: 2,
         image:
-          "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800&q=80",
+          "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=1920&q=90",
       },
       {
         name: "Beach Cottage",
@@ -487,7 +730,7 @@ const MOCK_HOTELS: Hotel[] = [
         pricePerNight: 7999,
         maxGuests: 3,
         image:
-          "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800&q=80",
+          "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=1920&q=90",
       },
     ],
     cancellationPolicy:
@@ -503,9 +746,11 @@ const MOCK_HOTELS: Hotel[] = [
     starRating: 3,
     startingPrice: 2499,
     image:
-      "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800&q=80",
+      "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=1920&q=90",
     images: [
-      "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800&q=80",
+      "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=1920&q=90",
+      "https://images.unsplash.com/photo-1482862549707-f63cb32c5fd9?w=1920&q=90",
+      "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1920&q=90",
     ],
     overview:
       "Nestled in the hills of Shimla with stunning valley views. Cozy rooms, bonfire nights, and warm hospitality make this the ideal mountain retreat.",
@@ -525,7 +770,7 @@ const MOCK_HOTELS: Hotel[] = [
         pricePerNight: 2499,
         maxGuests: 2,
         image:
-          "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&q=80",
+          "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=1920&q=90",
       },
       {
         name: "Deluxe Room",
@@ -533,7 +778,7 @@ const MOCK_HOTELS: Hotel[] = [
         pricePerNight: 3999,
         maxGuests: 3,
         image:
-          "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800&q=80",
+          "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=1920&q=90",
       },
     ],
     cancellationPolicy:
@@ -549,9 +794,9 @@ const MOCK_HOTELS: Hotel[] = [
     starRating: 5,
     startingPrice: 5999,
     image:
-      "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800&q=80",
+      "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=1920&q=90",
     images: [
-      "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800&q=80",
+      "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=1920&q=90",
     ],
     overview:
       "Experience royal Rajasthani hospitality at this heritage hotel overlooking Lake Pichola. World-class dining, spa, and cultural evenings.",
@@ -572,7 +817,7 @@ const MOCK_HOTELS: Hotel[] = [
         pricePerNight: 5999,
         maxGuests: 2,
         image:
-          "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&q=80",
+          "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=1920&q=90",
       },
       {
         name: "Royal Suite",

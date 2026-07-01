@@ -45,7 +45,10 @@ export default function AboutPage() {
           >
             About HR Trips
           </h1>
-          <p className="text-white/70 text-sm lg:text-base">
+          <p 
+            style={{ color: 'rgba(255, 255, 255, 0.8)' }}
+            className="text-sm lg:text-base !text-white/80"
+          >
             Your trusted travel partner since day one
           </p>
         </div>

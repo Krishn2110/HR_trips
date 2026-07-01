@@ -52,11 +52,14 @@ export default function Hero() {
               <span className="gradient-text">Begins Here</span>
             </h1>
 
-            <p className="text-white/70 text-lg lg:text-xl max-w-xl leading-relaxed mb-10">
-              Discover curated holiday packages, premium hotel stays, and
-              seamless travel experiences. From the mountains to the
-              beaches — we make every trip unforgettable.
-            </p>
+             <p 
+               style={{ color: 'rgba(255, 255, 255, 0.85)' }}
+               className="text-lg lg:text-xl max-w-xl leading-relaxed mb-10 !text-white/85"
+             >
+               Discover curated holiday packages, premium hotel stays, and
+               seamless travel experiences. From the mountains to the
+               beaches — we make every trip unforgettable.
+             </p>
           </motion.div>
 
           {/* Search Widget */}
@@ -123,10 +126,18 @@ export default function Hero() {
               { number: "50+", label: "Destinations" },
             ].map((stat) => (
               <div key={stat.label}>
-                <span className="block font-heading font-bold text-2xl text-white">
-                  {stat.number}
-                </span>
-                <span className="text-xs text-white/50">{stat.label}</span>
+                 <span 
+                   style={{ color: '#ffffff' }}
+                   className="block font-heading font-bold text-2xl !text-white"
+                 >
+                   {stat.number}
+                 </span>
+                 <span 
+                   style={{ color: 'rgba(255, 255, 255, 0.7)' }}
+                   className="text-xs !text-white/70"
+                 >
+                   {stat.label}
+                 </span>
               </div>
             ))}
           </motion.div>

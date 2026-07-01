@@ -33,7 +33,10 @@ export default async function HotelBookingPage() {
           >
             Hotel Booking
           </h1>
-          <p className="text-white/70 text-sm lg:text-base">
+          <p 
+            style={{ color: 'rgba(255, 255, 255, 0.8)' }}
+            className="text-sm lg:text-base !text-white/80"
+          >
             Find and book the perfect hotel for your stay
           </p>
         </div>

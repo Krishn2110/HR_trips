@@ -29,12 +29,18 @@ export default function CtaBanner() {
           {/* Content */}
           <div className="relative z-10 px-8 py-16 lg:px-16 lg:py-20 text-center lg:text-left">
             <div className="max-w-2xl mx-auto lg:mx-0">
-              <h2 className="font-heading text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 leading-tight">
+              <h2 
+                style={{ color: '#ffffff' }}
+                className="font-heading text-3xl md:text-4xl lg:text-5xl font-bold !text-white mb-4 leading-tight"
+              >
                 Plan Your Next Trip
                 <br />
                 <span className="text-primary">with HR Trips</span>
               </h2>
-              <p className="text-white/70 text-lg mb-8 max-w-xl">
+              <p 
+                style={{ color: 'rgba(255, 255, 255, 0.85)' }}
+                className="text-lg mb-8 max-w-xl !text-white/85"
+              >
                 Ready for an unforgettable journey? Get in touch with our
                 travel experts and let us craft the perfect itinerary for
                 you.

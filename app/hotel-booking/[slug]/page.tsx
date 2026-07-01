@@ -63,7 +63,12 @@ export default async function HotelDetailPage({ params }: PageProps) {
           >
             {hotel.name}
           </h1>
-          <p className="text-white/70 text-sm mt-1">{hotel.location}</p>
+          <p 
+            style={{ color: 'rgba(255, 255, 255, 0.8)' }}
+            className="text-sm mt-1 !text-white/80"
+          >
+            {hotel.location}
+          </p>
         </div>
       </div>
 

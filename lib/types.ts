@@ -128,3 +128,15 @@ export interface ApiResponse<T> {
   data: T;
   message?: string;
 }
+
+export interface PackageBookingPayload {
+  name: string;
+  phone: string;
+  email: string;
+  travelDate: string;
+  guests: number;
+  packageId: string;
+  pricingPlan: string;
+  specialRequests?: string;
+  totalPrice: number;
+}

@@ -56,7 +56,10 @@ export default function ContactPage() {
           >
             Contact Us
           </h1>
-          <p className="text-white/70 text-sm lg:text-base">
+          <p 
+            style={{ color: 'rgba(255, 255, 255, 0.8)' }}
+            className="text-sm lg:text-base !text-white/80"
+          >
             We&apos;d love to hear from you
           </p>
         </div>
