@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { adminLoginSchema, type AdminLoginFormData } from "@/lib/validators";
 import { ShieldCheck, Mail, Lock, Loader2, ArrowLeft, KeyRound } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -58,8 +59,8 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md relative z-10">
         {/* Brand header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary to-primary-dark rounded-2xl shadow-xl shadow-primary/20 mb-4 animate-float">
-            <ShieldCheck className="w-8 h-8 text-white" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-white/[0.04] rounded-2xl shadow-xl border border-white/10 mb-4 animate-float overflow-hidden">
+            <Image src="/logo.png" alt="HR Trips Logo" width={64} height={64} className="w-16 h-16 object-contain" />
           </div>
           <h1 className="font-heading font-black text-3xl text-white tracking-tight">
             HR Trips Admin

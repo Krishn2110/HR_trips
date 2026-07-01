@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   Phone,
   Mail,
@@ -48,9 +49,7 @@ export default function Footer() {
           {/* Brand column */}
           <div className="lg:col-span-1">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white font-heading font-bold text-lg">
-                HR
-              </div>
+              <Image src="/logo.png" alt="HR Trips Logo" width={40} height={40} className="w-10 h-10 object-contain rounded-xl" />
               <div>
                 <span className="font-heading font-bold text-xl text-white leading-none">
                   HR Trips

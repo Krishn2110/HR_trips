@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { X, Phone, Mail, ChevronRight } from "lucide-react";
 import { NAV_LINKS, CONTACT } from "@/lib/constants";
 
@@ -42,9 +43,7 @@ export default function MobileMenu({ open, onClose }: MobileMenuProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white font-heading font-bold text-sm">
-              HR
-            </div>
+            <Image src="/logo.png" alt="HR Trips Logo" width={32} height={32} className="w-8 h-8 object-contain rounded-lg" />
             <span className="font-heading font-bold text-lg text-ink">
               HR Trips
             </span>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Phone, ChevronDown, Menu } from "lucide-react";
 import { NAV_LINKS } from "@/lib/constants";
 import MobileMenu from "./MobileMenu";
@@ -29,9 +30,7 @@ export default function Navbar() {
         <div className="container-wide flex items-center justify-between h-16 lg:h-[72px]">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 shrink-0">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white font-heading font-bold text-lg">
-              HR
-            </div>
+            <Image src="/logo.png" alt="HR Trips Logo" width={40} height={40} className="w-10 h-10 object-contain rounded-xl" />
             <div className="hidden sm:block">
               <span className="font-heading font-bold text-xl text-ink leading-none">
                 HR Trips

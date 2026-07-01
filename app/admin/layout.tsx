@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { 
   LayoutDashboard, 
   Palmtree, 
@@ -139,9 +140,7 @@ export default function AdminLayout({
       >
         {/* Brand logo */}
         <div className="h-20 border-b border-white/5 px-6 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white font-black text-lg">
-            HR
-          </div>
+          <Image src="/logo.png" alt="HR Trips Logo" width={40} height={40} className="w-10 h-10 object-contain rounded-xl" />
           <div>
             <span className="font-heading font-black text-white text-lg tracking-tight block">
               HR Trips
