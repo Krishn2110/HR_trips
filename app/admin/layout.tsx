@@ -133,7 +133,7 @@ export default function AdminLayout({
 
       {/* Sidebar Navigation */}
       <aside
-        className={`fixed inset-y-0 left-0 w-64 bg-[#1A1A1A] text-white flex flex-col transform transition-transform duration-300 z-50 lg:translate-x-0 lg:static lg:h-screen lg:shrink-0 ${
+        className={`fixed inset-y-0 left-0 w-64 bg-[#1A1A1A] text-white flex flex-col transform transition-transform duration-300 z-50 lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:shrink-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -167,7 +167,7 @@ export default function AdminLayout({
         </div>
 
         {/* Nav links */}
-        <nav className="flex-1 px-4 py-6 space-y-1.5">
+        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = pathname === item.href;
