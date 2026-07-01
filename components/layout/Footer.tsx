@@ -49,7 +49,7 @@ export default function Footer() {
           {/* Brand column */}
           <div className="lg:col-span-1">
             <div className="flex items-center gap-2 mb-4">
-              <Image src="/logo.png" alt="HR Trips Logo" width={40} height={40} className="w-10 h-10 object-contain rounded-xl" />
+              <img src="/logo.png" alt="HR Trips Logo" className="w-10 h-10 object-contain rounded-xl" />
               <div>
                 <span className="font-heading font-bold text-xl text-white leading-none">
                   HR Trips

@@ -30,7 +30,7 @@ export default function Navbar() {
         <div className="container-wide flex items-center justify-between h-16 lg:h-[72px]">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 shrink-0">
-            <Image src="/logo.png" alt="HR Trips Logo" width={40} height={40} className="w-10 h-10 object-contain rounded-xl" />
+            <img src="/logo.png" alt="HR Trips Logo" className="w-10 h-10 object-contain rounded-xl" />
             <div className="hidden sm:block">
               <span className="font-heading font-bold text-xl text-ink leading-none">
                 HR Trips

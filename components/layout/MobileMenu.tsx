@@ -43,7 +43,7 @@ export default function MobileMenu({ open, onClose }: MobileMenuProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-2">
-            <Image src="/logo.png" alt="HR Trips Logo" width={32} height={32} className="w-8 h-8 object-contain rounded-lg" />
+            <img src="/logo.png" alt="HR Trips Logo" className="w-8 h-8 object-contain rounded-lg" />
             <span className="font-heading font-bold text-lg text-ink">
               HR Trips
             </span>
