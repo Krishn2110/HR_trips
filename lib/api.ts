@@ -21,48 +21,9 @@ async function apiFetch<T>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> {
-  const url = `${API_BASE}${endpoint}`;
-
-  // If server-side (build time/prerendering):
-  if (typeof window === "undefined") {
-    // 1. Throw early on relative paths or localhost URLs to trigger offline fallback and avoid build timeouts
-    if (!url.startsWith("http") || url.includes("localhost") || url.includes("127.0.0.1")) {
-      throw new Error("Relative or localhost fetch is skipped server-side during build to prevent hangs");
-    }
-  }
-
-  let timeoutId: NodeJS.Timeout | null = null;
-  const fetchOptions = { ...options };
-
-  if (typeof window === "undefined") {
-    const controller = new AbortController();
-    fetchOptions.signal = controller.signal;
-    timeoutId = setTimeout(() => {
-      controller.abort();
-    }, 3000); // 3 seconds timeout for build-time requests
-  }
-
-  try {
-    const res = await fetch(url, {
-      headers: {
-        "Content-Type": "application/json",
-        ...fetchOptions?.headers,
-      },
-      ...fetchOptions,
-    });
-
-    if (timeoutId) clearTimeout(timeoutId);
-
-    if (!res.ok) {
-      throw new Error(`API error: ${res.status} ${res.statusText}`);
-    }
-
-    return res.json();
-  } catch {
-    if (timeoutId) clearTimeout(timeoutId);
-    console.warn(`API call to ${url} failed, using mock data`);
-    throw new Error(`Failed to fetch from ${endpoint}`);
-  }
+  // The PHP backend is exclusively for admin authentication.
+  // All other services (Packages, Hotels, Cabs, etc.) run locally inside Next.js.
+  throw new Error(`PHP API is only used for admin login. Directing ${endpoint} to local catalog.`);
 }
 
 // ── Helper to check browser environment and keys ─────────────
