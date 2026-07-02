@@ -14,7 +14,7 @@ import type {
   ManpowerOption,
 } from "./types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 // ── Generic fetch wrapper ───────────────────────────────────
 async function apiFetch<T>(
@@ -127,7 +127,7 @@ export async function createOrUpdatePackage(pkg: Omit<Package, "id" | "slug"> & 
   } catch {
     const packages = getLocalPackages();
     let savedPkg: Package;
-    
+
     if (pkg.id) {
       const index = packages.findIndex(p => p.id === pkg.id);
       if (index === -1) throw new Error("Package not found");
@@ -147,7 +147,7 @@ export async function createOrUpdatePackage(pkg: Omit<Package, "id" | "slug"> & 
       } as Package;
       packages.push(savedPkg);
     }
-    
+
     saveLocalPackages(packages);
     return savedPkg;
   }
@@ -275,7 +275,7 @@ export async function submitEnquiry(
     // Save to local storage bookings database
     const bookings = getLocalBookings();
     const pkg = getLocalPackages().find(p => p.id === payload.packageId);
-    
+
     bookings.push({
       id: `req-${Math.random().toString(36).substr(2, 9)}`,
       type: "Package Enquiry",
@@ -289,7 +289,7 @@ export async function submitEnquiry(
       createdAt: new Date().toISOString()
     });
     saveLocalBookings(bookings);
-    
+
     console.log("Enquiry submitted (mock):", payload);
     return { success: true };
   }
@@ -307,7 +307,7 @@ export async function submitBooking(
     // Save to local storage bookings database
     const bookings = getLocalBookings();
     const hotel = MOCK_HOTELS.find(h => h.id === payload.hotelId);
-    
+
     bookings.push({
       id: `req-${Math.random().toString(36).substr(2, 9)}`,
       type: "Hotel Booking",
@@ -369,7 +369,7 @@ export async function submitPackageBooking(
     // Save to local storage bookings database for testing fallback
     const bookings = getLocalBookings();
     const pkg = getLocalPackages().find((p) => p.id === payload.packageId);
-    
+
     bookings.push({
       id: `req-${Math.random().toString(36).substr(2, 9)}`,
       type: "Package Booking",
