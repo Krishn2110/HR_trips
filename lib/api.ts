@@ -23,6 +23,11 @@ async function apiFetch<T>(
 ): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
 
+  // If server-side (build time) and base URL is relative/missing, throw early to trigger local fallback instead of hanging
+  if (typeof window === "undefined" && !url.startsWith("http")) {
+    throw new Error("Relative fetch not supported on server-side during build without absolute base URL");
+  }
+
   try {
     const res = await fetch(url, {
       headers: {

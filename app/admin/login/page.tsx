@@ -12,15 +12,15 @@ type ViewState = "login" | "request" | "verify" | "reset" | "success";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  
+
   // View State Manager
   const [view, setView] = useState<ViewState>("login");
-  
+
   // Form Data States
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  
+
   // UI States
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -277,7 +277,7 @@ export default function AdminLoginPage() {
           {view === "verify" && (
             <form onSubmit={handleVerifyOtp} className="space-y-5">
               <div className="flex items-center gap-2 mb-2">
-                <button type="button" onClick={() => {setView("request"); setError("");}} className="p-1.5 bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] rounded-lg text-white/60 transition-colors">
+                <button type="button" onClick={() => { setView("request"); setError(""); }} className="p-1.5 bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] rounded-lg text-white/60 transition-colors">
                   <ArrowLeft className="w-4 h-4" />
                 </button>
                 <span className="text-white font-semibold text-sm">Enter OTP</span>
