@@ -23,19 +23,35 @@ async function apiFetch<T>(
 ): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
 
-  // If server-side (build time) and base URL is relative/missing, throw early to trigger local fallback instead of hanging
-  if (typeof window === "undefined" && !url.startsWith("http")) {
-    throw new Error("Relative fetch not supported on server-side during build without absolute base URL");
+  // If server-side (build time/prerendering):
+  if (typeof window === "undefined") {
+    // 1. Throw early on relative paths or localhost URLs to trigger offline fallback and avoid build timeouts
+    if (!url.startsWith("http") || url.includes("localhost") || url.includes("127.0.0.1")) {
+      throw new Error("Relative or localhost fetch is skipped server-side during build to prevent hangs");
+    }
+  }
+
+  let timeoutId: NodeJS.Timeout | null = null;
+  const fetchOptions = { ...options };
+
+  if (typeof window === "undefined") {
+    const controller = new AbortController();
+    fetchOptions.signal = controller.signal;
+    timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 3000); // 3 seconds timeout for build-time requests
   }
 
   try {
     const res = await fetch(url, {
       headers: {
         "Content-Type": "application/json",
-        ...options?.headers,
+        ...fetchOptions?.headers,
       },
-      ...options,
+      ...fetchOptions,
     });
+
+    if (timeoutId) clearTimeout(timeoutId);
 
     if (!res.ok) {
       throw new Error(`API error: ${res.status} ${res.statusText}`);
@@ -43,7 +59,7 @@ async function apiFetch<T>(
 
     return res.json();
   } catch {
-    // In development, fall back to mock data
+    if (timeoutId) clearTimeout(timeoutId);
     console.warn(`API call to ${url} failed, using mock data`);
     throw new Error(`Failed to fetch from ${endpoint}`);
   }
