@@ -98,8 +98,6 @@ export const SERVICES: Service[] = [
 // ── Navigation Links ────────────────────────────────────────
 export const NAV_LINKS: NavLink[] = [
   { label: "Home", href: "/" },
-  { label: "Holiday Packages", href: "/holiday-packages" },
-  { label: "Hotel Booking", href: "/hotel-booking" },
   {
     label: "Services",
     href: "/services",
