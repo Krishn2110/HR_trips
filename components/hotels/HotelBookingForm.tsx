@@ -138,6 +138,7 @@ export default function HotelBookingForm({
 
         <div className="grid grid-cols-3 gap-3">
           <div>
+            <label className="block text-xs text-muted mb-1">Rooms</label>
             <input
               {...register("rooms", { valueAsNumber: true })}
               type="number"
@@ -147,6 +148,7 @@ export default function HotelBookingForm({
             />
           </div>
           <div>
+            <label className="block text-xs text-muted mb-1">Guests</label>
             <input
               {...register("guests", { valueAsNumber: true })}
               type="number"
@@ -156,11 +158,12 @@ export default function HotelBookingForm({
             />
           </div>
           <div>
+            <label className="block text-xs text-muted mb-1">Room Type</label>
             <select
               {...register("roomType")}
               className="w-full px-4 py-3 bg-surface rounded-xl text-sm text-ink border border-border focus:border-primary transition-colors"
             >
-              <option value="">Room type</option>
+              <option value="">Select type</option>
               {roomTypes.map((rt) => (
                 <option key={rt.name} value={rt.name}>
                   {rt.name}
