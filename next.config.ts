@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // output: "export", // Enables static export
+  //output: "export", // Enables static export
   images: {
     unoptimized: true, // Disables the Node.js image optimization requirement
     remotePatterns: [

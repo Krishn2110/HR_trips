@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import { getPackages } from "@/lib/api";
 import Breadcrumbs from "@/components/shared/Breadcrumbs";
-import SectionHeading from "@/components/shared/SectionHeading";
 import PackageCard from "@/components/packages/PackageCard";
 import PackageFilters from "@/components/packages/PackageFilters";
 
@@ -10,6 +8,37 @@ export const metadata: Metadata = {
   description:
     "Explore curated holiday packages to Nepal, Goa, Shimla, Manali, Rajasthan, Kashmir and more. Affordable tour packages with hotels, meals, and transport included.",
 };
+
+// --- API HELPER FUNCTION ---
+async function getPackages() {
+  try {
+    // Fetch directly from your PHP backend
+    // 'next: { revalidate: 60 }' caches the result for 60 seconds for faster load times
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/packages/list.php`, {
+      next: { revalidate: 60 }
+    });
+    const result = await res.json();
+    
+    if (res.ok && result.status === 'success') {
+      // Map the database structure to what the React components expect
+      return result.data.map((pkg: any) => ({
+        ...pkg,
+        slug: pkg.slug || pkg.id.toString(), // Fallback if slug isn't in DB yet
+        images: pkg.images || (pkg.image ? [pkg.image] : []),
+        overview: pkg.overview || "",
+        highlights: pkg.highlights || [],
+        placesCovered: pkg.placesCovered || [],
+        pricing: pkg.pricing || [],
+        itinerary: pkg.itinerary || []
+      }));
+    }
+    return [];
+  } catch (error) {
+    console.error("Failed to fetch packages:", error);
+    return [];
+  }
+}
+// ----------------------------
 
 export default async function HolidayPackagesPage() {
   const packages = await getPackages();
@@ -46,10 +75,16 @@ export default async function HolidayPackagesPage() {
       <div className="container-wide py-8">
         <Breadcrumbs items={[{ label: "Holiday Packages" }]} />
 
+        {/* 
+          Note on Filtering: 
+          If PackageFilters uses URL parameters (like ?destination=goa), 
+          you can pass 'searchParams' to this page component to filter the 'packages' array 
+          before passing them to the map function below.
+        */}
         <PackageFilters />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {packages.map((pkg) => (
+          {packages.map((pkg: any) => (
             <PackageCard key={pkg.id} pkg={pkg} />
           ))}
         </div>

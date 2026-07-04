@@ -3,13 +3,12 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Send, Loader2, CheckCircle2, ShieldCheck, Ticket } from "lucide-react";
+import { Send, Loader2, CheckCircle2, Ticket } from "lucide-react";
 import { enquirySchema, type EnquiryFormData } from "@/lib/validators";
-import { submitEnquiry, submitPackageBooking } from "@/lib/api";
 import type { PricingTier } from "@/lib/types";
 
 interface PackageEnquiryFormProps {
-  packageId: string;
+  packageId: string | number;
   packageTitle: string;
   pricing: PricingTier[];
 }
@@ -36,7 +35,7 @@ export default function PackageEnquiryForm({
     },
   });
 
-  // Direct Booking Form (Manual fields validation to allow custom pricing integrations)
+  // Direct Booking Form (Manual fields validation)
   const [bookingFields, setBookingFields] = useState({
     name: "",
     phone: "",
@@ -67,60 +66,85 @@ export default function PackageEnquiryForm({
     return Object.keys(errs).length === 0;
   };
 
+  // --- API: SUBMIT ENQUIRY ---
   const onEnquirySubmit = async (data: EnquiryFormData) => {
     setStatus("loading");
     try {
-      await submitEnquiry({
-        ...data,
+      const payload = {
+        package_id: packageId,
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        travelDate: data.travelDate,
         paxCount: Number(data.paxCount),
-        packageId,
         message: data.message || "",
+      };
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/enquiries/create.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      setStatus("success");
-      resetEnquiry();
-      setTimeout(() => setStatus("idle"), 4000);
-    } catch {
+
+      const result = await response.json();
+
+      if (response.ok && result.status === "success") {
+        setStatus("success");
+        resetEnquiry();
+        setTimeout(() => setStatus("idle"), 4000);
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (err) {
+      console.error(err);
       setStatus("error");
       setTimeout(() => setStatus("idle"), 3000);
     }
   };
 
+  // --- API: SUBMIT BOOKING ---
   const onBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateBooking()) return;
 
     setStatus("loading");
-    const activePlan = pricing[selectedPlanIdx] || {
-      hotelCategory: "Standard Package",
-      plan: "MAP Plan",
-      pricePerPerson: 1000,
-    };
     
+    const activePlan = pricing[selectedPlanIdx] || {
+      hotelCategory: "Standard", plan: "Base", pricePerPerson: 0
+    };
     const totalPrice = activePlan.pricePerPerson * bookingFields.guests;
+    
+    // Format pricing context into the special requests field so admins see it
+    const bookingNotes = `Plan: ${activePlan.hotelCategory} (${activePlan.plan}) | Total Price Estimate: ₹${totalPrice} | Customer Note: ${bookingFields.specialRequests}`;
 
     try {
-      await submitPackageBooking({
-        name: bookingFields.name,
-        phone: bookingFields.phone,
-        email: bookingFields.email,
-        travelDate: bookingFields.travelDate,
-        guests: bookingFields.guests,
-        packageId,
-        pricingPlan: `${activePlan.hotelCategory} (${activePlan.plan}) - ₹${activePlan.pricePerPerson}/Person`,
-        specialRequests: bookingFields.specialRequests,
-        totalPrice,
+      const payload = {
+        package_id: packageId,
+        customer_name: bookingFields.name,
+        customer_phone: bookingFields.phone,
+        customer_email: bookingFields.email,
+        travel_date: bookingFields.travelDate,
+        adults: bookingFields.guests,
+        special_requests: bookingNotes,
+      };
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings/create.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      setStatus("success");
-      setBookingFields({
-        name: "",
-        phone: "",
-        email: "",
-        travelDate: "",
-        guests: 2,
-        specialRequests: "",
-      });
-      setTimeout(() => setStatus("idle"), 4000);
-    } catch {
+
+      const result = await response.json();
+
+      if (response.ok && result.status === "success") {
+        setStatus("success");
+        setBookingFields({ name: "", phone: "", email: "", travelDate: "", guests: 2, specialRequests: "" });
+        setTimeout(() => setStatus("idle"), 4000);
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (err) {
+      console.error(err);
       setStatus("error");
       setTimeout(() => setStatus("idle"), 3000);
     }
@@ -143,7 +167,7 @@ export default function PackageEnquiryForm({
   }
 
   // Live Total Price Calculation for booking
-  const selectedPlan = pricing[selectedPlanIdx];
+  const selectedPlan = pricing?.[selectedPlanIdx];
   const totalPrice = selectedPlan ? selectedPlan.pricePerPerson * bookingFields.guests : 0;
 
   return (
@@ -260,7 +284,7 @@ export default function PackageEnquiryForm({
             <button
               type="submit"
               disabled={status === "loading"}
-              className="w-full py-3 bg-gradient-to-r from-primary to-primary-dark text-white font-semibold rounded-xl flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-primary/25 active:scale-[0.98] transition-all cursor-pointer text-xs"
+              className="w-full py-3 bg-gradient-to-r from-primary to-primary-dark text-white font-semibold rounded-xl flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-primary/25 active:scale-[0.98] transition-all cursor-pointer text-xs disabled:opacity-60"
             >
               {status === "loading" ? (
                 <>
@@ -396,7 +420,7 @@ export default function PackageEnquiryForm({
             <button
               type="submit"
               disabled={status === "loading"}
-              className="w-full py-3.5 bg-gradient-to-r from-primary to-primary-dark text-white font-semibold rounded-xl flex items-center justify-center gap-2 hover:shadow-lg active:scale-[0.98] transition-all cursor-pointer text-xs"
+              className="w-full py-3.5 bg-gradient-to-r from-primary to-primary-dark text-white font-semibold rounded-xl flex items-center justify-center gap-2 hover:shadow-lg active:scale-[0.98] transition-all cursor-pointer text-xs disabled:opacity-60"
             >
               {status === "loading" ? (
                 <>

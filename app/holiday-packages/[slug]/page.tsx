@@ -3,7 +3,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Clock, MapPin, ArrowLeft } from "lucide-react";
-import { getPackageBySlug, getPackages } from "@/lib/api";
 import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import PackageHighlights from "@/components/packages/PackageHighlights";
 import PackageItinerary from "@/components/packages/PackageItinerary";
@@ -15,16 +14,57 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+// --- API HELPER FUNCTIONS FOR SERVER COMPONENT ---
+async function getPackages() {
+  try {
+    // Fetch directly from your PHP backend
+    // 'next: { revalidate: 60 }' tells Next.js to cache the result for 60 seconds
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/packages/list.php`, {
+      next: { revalidate: 60 }
+    });
+    const result = await res.json();
+    
+    if (res.ok && result.status === 'success') {
+      // Map the database structure to what the React components expect
+      return result.data.map((pkg: any) => ({
+        ...pkg,
+        // If your DB doesn't have a slug, fall back to the ID
+        slug: pkg.slug || pkg.id.toString(), 
+        // Fallback for gallery if the DB only has one image column right now
+        images: pkg.images || (pkg.image ? [pkg.image] : []),
+        overview: pkg.overview || "",
+        highlights: pkg.highlights || [],
+        placesCovered: pkg.placesCovered || [],
+        pricing: pkg.pricing || [],
+        itinerary: pkg.itinerary || []
+      }));
+    }
+    return [];
+  } catch (error) {
+    console.error("Failed to fetch packages:", error);
+    return [];
+  }
+}
+
+async function getPackageBySlug(slug: string) {
+  const packages = await getPackages();
+  // Find the package where either the slug or ID matches the URL parameter
+  return packages.find((p: any) => p.slug === slug || p.id.toString() === slug) || null;
+}
+// ------------------------------------------------
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const pkg = await getPackageBySlug(slug);
+  
   if (!pkg) return { title: "Package Not Found" };
+  
   return {
     title: pkg.title,
-    description: pkg.overview.substring(0, 160),
+    description: pkg.overview ? pkg.overview.substring(0, 160) : "Holiday Package",
     openGraph: {
       title: pkg.title,
-      description: pkg.overview.substring(0, 160),
+      description: pkg.overview ? pkg.overview.substring(0, 160) : "Holiday Package",
       images: [{ url: pkg.image }],
     },
   };
@@ -32,13 +72,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function PackageDetailPage({ params }: PageProps) {
   const { slug } = await params;
+  
+  // 1. Fetch specific package details
   const pkg = await getPackageBySlug(slug);
   if (!pkg) notFound();
 
-  // Related packages (same category, exclude current)
+  // 2. Fetch all packages to display "Related packages"
   const allPackages = await getPackages();
   const related = allPackages
-    .filter((p) => p.slug !== pkg.slug)
+    .filter((p: any) => p.slug !== pkg.slug && p.id !== pkg.id)
     .slice(0, 3);
 
   return (
@@ -90,24 +132,24 @@ export default async function PackageDetailPage({ params }: PageProps) {
               <h2 className="font-heading font-semibold text-ink text-xl mb-3">
                 Overview
               </h2>
-              <p className="text-muted text-sm leading-relaxed">
+              <p className="text-muted text-sm leading-relaxed whitespace-pre-line">
                 {pkg.overview}
               </p>
             </div>
 
             {/* Highlights */}
-            {pkg.highlights.length > 0 && (
+            {pkg.highlights?.length > 0 && (
               <PackageHighlights highlights={pkg.highlights} />
             )}
 
             {/* Places Covered */}
-            {pkg.placesCovered.length > 0 && (
+            {pkg.placesCovered?.length > 0 && (
               <div>
                 <h3 className="font-heading font-semibold text-ink text-lg mb-4">
                   Places Covered
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {pkg.placesCovered.map((place, index) => (
+                  {pkg.placesCovered.map((place: string, index: number) => (
                     <div
                       key={index}
                       className="flex items-center gap-2 px-4 py-3 bg-surface rounded-xl text-sm text-ink/80"
@@ -121,21 +163,21 @@ export default async function PackageDetailPage({ params }: PageProps) {
             )}
 
             {/* Pricing */}
-            {pkg.pricing.length > 0 && <PriceTable pricing={pkg.pricing} />}
+            {pkg.pricing?.length > 0 && <PriceTable pricing={pkg.pricing} />}
 
             {/* Itinerary */}
-            {pkg.itinerary.length > 0 && (
+            {pkg.itinerary?.length > 0 && (
               <PackageItinerary itinerary={pkg.itinerary} />
             )}
 
             {/* Image Gallery */}
-            {pkg.images.length > 1 && (
+            {pkg.images?.length > 1 && (
               <div>
                 <h3 className="font-heading font-semibold text-ink text-lg mb-4">
                   Gallery
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {pkg.images.map((img, index) => (
+                  {pkg.images.map((img: string, index: number) => (
                     <div
                       key={index}
                       className="relative h-40 rounded-xl overflow-hidden img-zoom"
@@ -185,7 +227,7 @@ export default async function PackageDetailPage({ params }: PageProps) {
               You May Also Like
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {related.map((p) => (
+              {related.map((p: any) => (
                 <PackageCard key={p.id} pkg={p} />
               ))}
             </div>
