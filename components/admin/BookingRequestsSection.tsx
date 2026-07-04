@@ -222,7 +222,7 @@ export default function BookingRequestsSection({ filterType }: BookingRequestsSe
                       <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {b.date}</span>
                     </td>
                     <td className="py-4 px-4 text-ink font-semibold">
-                      <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5 text-muted" /> {b.guests} Pax</span>
+                      <span className="text-[11px] flex items-center gap-1"><Users className="w-3.5 h-3.5 text-muted shrink-0" /> {typeof b.guests === "number" ? `${b.guests} Pax` : b.guests}</span>
                     </td>
                     <td className="py-4 px-4 text-center">
                       <select

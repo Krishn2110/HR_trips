@@ -85,7 +85,9 @@ export interface BookingPayload {
   checkin: string;
   checkout: string;
   rooms: number;
-  guests: number;
+  guests: number | string;
+  adults?: number;
+  children?: number;
   roomType: string;
   hotelId: string;
   specialRequests?: string;

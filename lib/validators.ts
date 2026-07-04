@@ -40,10 +40,14 @@ export const bookingSchema = z.object({
     .number({ error: "Enter number of rooms" })
     .min(1, "At least 1 room required")
     .max(20, "For 20+ rooms, please call us"),
-  guests: z
-    .number({ error: "Enter number of guests" })
-    .min(1, "At least 1 guest required")
-    .max(100, "For 100+ guests, please call us"),
+  adults: z
+    .number({ error: "Enter number of adults" })
+    .min(1, "At least 1 adult required")
+    .max(100, "For 100+ adults, please call us"),
+  children: z
+    .number({ error: "Enter number of children" })
+    .min(0, "Children count cannot be negative")
+    .max(50, "For 50+ children, please call us"),
   roomType: z.string().min(1, "Select a room type"),
   specialRequests: z.string().max(500, "Message is too long").optional(),
 });
