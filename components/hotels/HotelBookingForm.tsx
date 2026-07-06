@@ -29,7 +29,8 @@ export default function HotelBookingForm({
     resolver: zodResolver(bookingSchema),
     defaultValues: {
       rooms: 1,
-      guests: 2,
+      adults: 2,
+      children: 0,
     },
   });
 
@@ -39,7 +40,9 @@ export default function HotelBookingForm({
       await submitBooking({
         ...data,
         rooms: Number(data.rooms),
-        guests: Number(data.guests),
+        guests: `${data.adults} Adults, ${data.children} Children`,
+        adults: Number(data.adults),
+        children: Number(data.children),
         hotelId,
         specialRequests: data.specialRequests || "",
       });
@@ -136,8 +139,9 @@ export default function HotelBookingForm({
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <div>
+            <label className="block text-xs text-muted mb-1">Rooms</label>
             <input
               {...register("rooms", { valueAsNumber: true })}
               type="number"
@@ -145,22 +149,17 @@ export default function HotelBookingForm({
               placeholder="Rooms"
               className="w-full px-4 py-3 bg-surface rounded-xl text-sm text-ink border border-border focus:border-primary transition-colors"
             />
+            {errors.rooms && (
+              <p className="text-red-500 text-xs mt-1">{errors.rooms.message}</p>
+            )}
           </div>
           <div>
-            <input
-              {...register("guests", { valueAsNumber: true })}
-              type="number"
-              min={1}
-              placeholder="Guests"
-              className="w-full px-4 py-3 bg-surface rounded-xl text-sm text-ink border border-border focus:border-primary transition-colors"
-            />
-          </div>
-          <div>
+            <label className="block text-xs text-muted mb-1">Room Type</label>
             <select
               {...register("roomType")}
               className="w-full px-4 py-3 bg-surface rounded-xl text-sm text-ink border border-border focus:border-primary transition-colors"
             >
-              <option value="">Room type</option>
+              <option value="">Select type</option>
               {roomTypes.map((rt) => (
                 <option key={rt.name} value={rt.name}>
                   {rt.name}
@@ -169,6 +168,35 @@ export default function HotelBookingForm({
             </select>
             {errors.roomType && (
               <p className="text-red-500 text-xs mt-1">{errors.roomType.message}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-muted mb-1">Adults</label>
+            <input
+              {...register("adults", { valueAsNumber: true })}
+              type="number"
+              min={1}
+              placeholder="Adults (12+ yrs)"
+              className="w-full px-4 py-3 bg-surface rounded-xl text-sm text-ink border border-border focus:border-primary transition-colors"
+            />
+            {errors.adults && (
+              <p className="text-red-500 text-xs mt-1">{errors.adults.message}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs text-muted mb-1">Children</label>
+            <input
+              {...register("children", { valueAsNumber: true })}
+              type="number"
+              min={0}
+              placeholder="Children (0-12 yrs)"
+              className="w-full px-4 py-3 bg-surface rounded-xl text-sm text-ink border border-border focus:border-primary transition-colors"
+            />
+            {errors.children && (
+              <p className="text-red-500 text-xs mt-1">{errors.children.message}</p>
             )}
           </div>
         </div>
