@@ -31,7 +31,7 @@ export default function PackageEnquiryForm({
   } = useForm<EnquiryFormData>({
     resolver: zodResolver(enquirySchema),
     defaultValues: {
-      paxCount: 2,
+      paxCount: 1,
     },
   });
 
@@ -41,7 +41,7 @@ export default function PackageEnquiryForm({
     phone: "",
     email: "",
     travelDate: "",
-    guests: 2,
+    guests: 1,
     specialRequests: "",
   });
   const [bookingErrors, setBookingErrors] = useState<Record<string, string>>({});
@@ -138,7 +138,7 @@ export default function PackageEnquiryForm({
 
       if (response.ok && result.status === "success") {
         setStatus("success");
-        setBookingFields({ name: "", phone: "", email: "", travelDate: "", guests: 2, specialRequests: "" });
+        setBookingFields({ name: "", phone: "", email: "", travelDate: "", guests: 1, specialRequests: "" });
         setTimeout(() => setStatus("idle"), 4000);
       } else {
         throw new Error(result.message);

@@ -1,14 +1,33 @@
 "use client";
 
 import { Search, SlidersHorizontal } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useTransition } from "react";
 
-interface PackageFiltersProps {
-  onFilterChange?: (filters: Record<string, string>) => void;
-}
+export default function PackageFilters() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
 
-export default function PackageFilters({ onFilterChange }: PackageFiltersProps) {
+  // Update the URL Query parameters when a filter is selected
+  const handleFilterChange = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    
+    if (value) {
+      params.set(key, value);
+    } else {
+      params.delete(key);
+    }
+
+    // Use transition to keep the UI smooth while the server re-fetches
+    startTransition(() => {
+      // { scroll: false } prevents the page from jumping to the top when filtering
+      router.replace(`?${params.toString()}`, { scroll: false });
+    });
+  };
+
   return (
-    <div className="bg-white rounded-2xl border border-border/50 p-6 mb-8">
+    <div className={`bg-white rounded-2xl border border-border/50 p-6 mb-8 transition-opacity ${isPending ? 'opacity-60' : 'opacity-100'}`}>
       <div className="flex items-center gap-2 mb-5">
         <SlidersHorizontal className="w-5 h-5 text-primary" />
         <h3 className="font-heading font-semibold text-ink">Filter Packages</h3>
@@ -21,10 +40,9 @@ export default function PackageFilters({ onFilterChange }: PackageFiltersProps) 
             Destination
           </label>
           <select
-            className="w-full px-4 py-2.5 bg-surface rounded-xl text-sm text-ink border border-border focus:border-primary transition-colors"
-            onChange={(e) =>
-              onFilterChange?.({ destination: e.target.value })
-            }
+            defaultValue={searchParams.get("destination") || ""}
+            className="w-full px-4 py-2.5 bg-surface rounded-xl text-sm text-ink border border-border focus:border-primary transition-colors cursor-pointer"
+            onChange={(e) => handleFilterChange("destination", e.target.value)}
           >
             <option value="">All Destinations</option>
             <option value="nepal">Nepal</option>
@@ -42,10 +60,9 @@ export default function PackageFilters({ onFilterChange }: PackageFiltersProps) 
             Duration
           </label>
           <select
-            className="w-full px-4 py-2.5 bg-surface rounded-xl text-sm text-ink border border-border focus:border-primary transition-colors"
-            onChange={(e) =>
-              onFilterChange?.({ duration: e.target.value })
-            }
+            defaultValue={searchParams.get("duration") || ""}
+            className="w-full px-4 py-2.5 bg-surface rounded-xl text-sm text-ink border border-border focus:border-primary transition-colors cursor-pointer"
+            onChange={(e) => handleFilterChange("duration", e.target.value)}
           >
             <option value="">Any Duration</option>
             <option value="3">Up to 3 Nights</option>
@@ -61,10 +78,9 @@ export default function PackageFilters({ onFilterChange }: PackageFiltersProps) 
             Budget (per person)
           </label>
           <select
-            className="w-full px-4 py-2.5 bg-surface rounded-xl text-sm text-ink border border-border focus:border-primary transition-colors"
-            onChange={(e) =>
-              onFilterChange?.({ budget: e.target.value })
-            }
+            defaultValue={searchParams.get("budget") || ""}
+            className="w-full px-4 py-2.5 bg-surface rounded-xl text-sm text-ink border border-border focus:border-primary transition-colors cursor-pointer"
+            onChange={(e) => handleFilterChange("budget", e.target.value)}
           >
             <option value="">Any Budget</option>
             <option value="7000">Under ₹7,000</option>
@@ -83,11 +99,10 @@ export default function PackageFilters({ onFilterChange }: PackageFiltersProps) 
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
             <input
               type="text"
+              defaultValue={searchParams.get("search") || ""}
               placeholder="Search packages..."
               className="w-full pl-10 pr-4 py-2.5 bg-surface rounded-xl text-sm text-ink border border-border focus:border-primary transition-colors"
-              onChange={(e) =>
-                onFilterChange?.({ search: e.target.value })
-              }
+              onChange={(e) => handleFilterChange("search", e.target.value)}
             />
           </div>
         </div>

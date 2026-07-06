@@ -9,21 +9,22 @@ export const metadata: Metadata = {
     "Explore curated holiday packages to Nepal, Goa, Shimla, Manali, Rajasthan, Kashmir and more. Affordable tour packages with hotels, meals, and transport included.",
 };
 
+interface PageProps {
+  searchParams: Promise<{ [key: string]: string | undefined }>;
+}
+
 // --- API HELPER FUNCTION ---
 async function getPackages() {
   try {
-    // Fetch directly from your PHP backend
-    // 'next: { revalidate: 60 }' caches the result for 60 seconds for faster load times
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/packages/list.php`, {
       next: { revalidate: 60 }
     });
     const result = await res.json();
     
     if (res.ok && result.status === 'success') {
-      // Map the database structure to what the React components expect
       return result.data.map((pkg: any) => ({
         ...pkg,
-        slug: pkg.slug || pkg.id.toString(), // Fallback if slug isn't in DB yet
+        slug: pkg.slug || pkg.id.toString(),
         images: pkg.images || (pkg.image ? [pkg.image] : []),
         overview: pkg.overview || "",
         highlights: pkg.highlights || [],
@@ -40,8 +41,50 @@ async function getPackages() {
 }
 // ----------------------------
 
-export default async function HolidayPackagesPage() {
+export default async function HolidayPackagesPage({ searchParams }: PageProps) {
   const packages = await getPackages();
+  const params = await searchParams; // Wait for search parameters (Next.js 15 required)
+
+  // --- SERVER-SIDE FILTERING LOGIC ---
+  let filteredPackages = packages;
+
+  if (params.destination) {
+    filteredPackages = filteredPackages.filter((pkg: any) => 
+      pkg.destination.toLowerCase().includes(params.destination!.toLowerCase())
+    );
+  }
+
+  if (params.search) {
+    filteredPackages = filteredPackages.filter((pkg: any) => 
+      pkg.title.toLowerCase().includes(params.search!.toLowerCase()) ||
+      pkg.destination.toLowerCase().includes(params.search!.toLowerCase())
+    );
+  }
+
+  if (params.duration) {
+    const dur = parseInt(params.duration);
+    filteredPackages = filteredPackages.filter((pkg: any) => {
+      const nights = pkg.nights || 0;
+      if (dur === 3) return nights <= 3;
+      if (dur === 5) return nights > 3 && nights <= 5;
+      if (dur === 7) return nights > 5 && nights <= 7;
+      if (dur === 10) return nights > 7;
+      return true;
+    });
+  }
+
+  if (params.budget) {
+    const budget = parseInt(params.budget);
+    filteredPackages = filteredPackages.filter((pkg: any) => {
+      const price = pkg.startingPrice || 0;
+      if (budget === 7000) return price <= 7000;
+      if (budget === 10000) return price > 7000 && price <= 10000;
+      if (budget === 15000) return price > 10000 && price <= 15000;
+      if (budget === 999999) return price > 15000;
+      return true;
+    });
+  }
+  // -----------------------------------
 
   return (
     <>
@@ -75,25 +118,21 @@ export default async function HolidayPackagesPage() {
       <div className="container-wide py-8">
         <Breadcrumbs items={[{ label: "Holiday Packages" }]} />
 
-        {/* 
-          Note on Filtering: 
-          If PackageFilters uses URL parameters (like ?destination=goa), 
-          you can pass 'searchParams' to this page component to filter the 'packages' array 
-          before passing them to the map function below.
-        */}
+        {/* The Filter Component automatically handles URL updates */}
         <PackageFilters />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {packages.map((pkg: any) => (
+          {filteredPackages.map((pkg: any) => (
             <PackageCard key={pkg.id} pkg={pkg} />
           ))}
         </div>
 
-        {packages.length === 0 && (
-          <div className="text-center py-20">
-            <p className="text-muted text-lg">
-              No packages found. Please check back later.
+        {filteredPackages.length === 0 && (
+          <div className="text-center py-20 border border-dashed border-border mt-8 rounded-2xl">
+            <p className="text-muted text-lg font-medium">
+              No packages found matching your filters.
             </p>
+            <p className="text-xs text-muted/70 mt-2">Try adjusting your budget or destination.</p>
           </div>
         )}
       </div>

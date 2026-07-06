@@ -12,7 +12,7 @@ export default function PriceTable({ pricing }: PriceTableProps) {
         Package Pricing
       </h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {pricing.map((tier, index) => (
+        {pricing.map(( tier, index) => (
           <div
             key={index}
             className={`relative rounded-2xl p-6 border-2 transition-all ${
