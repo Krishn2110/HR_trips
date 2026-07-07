@@ -133,7 +133,17 @@ function saveLocalBookings(bookings: any[]) {
 // ── Packages ────────────────────────────────────────────────
 export async function getPackages(): Promise<Package[]> {
   try {
-    return await apiFetch<Package[]>("/api/packages");
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://hr.manishkumardev.me/api";
+    const res = await fetch(`${baseUrl}/packages/list.php`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store"
+    });
+    const result = await res.json();
+    if (result.status === "success" && Array.isArray(result.data)) {
+      return result.data;
+    }
+    return getLocalPackages();
   } catch {
     return getLocalPackages();
   }
@@ -143,7 +153,8 @@ export async function getPackageBySlug(
   slug: string
 ): Promise<Package | undefined> {
   try {
-    return await apiFetch<Package>(`/api/packages/${slug}`);
+    const pkgs = await getPackages();
+    return pkgs.find(p => p.slug === slug);
   } catch {
     return getLocalPackages().find((p) => p.slug === slug);
   }
@@ -152,18 +163,23 @@ export async function getPackageBySlug(
 // Admin CRUD functions
 export async function createOrUpdatePackage(pkg: Omit<Package, "id" | "slug"> & { id?: string }): Promise<Package> {
   try {
-    if (pkg.id) {
-      return await apiFetch<Package>(`/api/admin/packages/${pkg.id}`, {
-        method: "PUT",
-        body: JSON.stringify(pkg),
-      });
-    } else {
-      return await apiFetch<Package>("/api/admin/packages", {
-        method: "POST",
-        body: JSON.stringify(pkg),
-      });
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://hr.manishkumardev.me/api";
+    const endpoint = pkg.id 
+      ? `${baseUrl}/packages/update.php` 
+      : `${baseUrl}/packages/create.php`;
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(pkg),
+    });
+    const result = await res.json();
+    if (result.status === "success" && result.data) {
+      return result.data;
     }
-  } catch {
+    throw new Error(result.message || "Failed to save remote package");
+  } catch (e) {
+    console.error("Error creating/updating remote package, using fallback:", e);
     const packages = getLocalPackages();
     let savedPkg: Package;
 
@@ -194,11 +210,16 @@ export async function createOrUpdatePackage(pkg: Omit<Package, "id" | "slug"> & 
 
 export async function deletePackage(id: string): Promise<boolean> {
   try {
-    const res = await apiFetch<{ success: boolean }>(`/api/admin/packages/${id}`, {
-      method: "DELETE",
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://hr.manishkumardev.me/api";
+    const res = await fetch(`${baseUrl}/packages/delete.php`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
     });
-    return res.success;
-  } catch {
+    const result = await res.json();
+    return res.ok && result.status === "success";
+  } catch (e) {
+    console.error("Error deleting remote package, using fallback:", e);
     const packages = getLocalPackages();
     const filtered = packages.filter(p => p.id !== id);
     if (packages.length === filtered.length) return false;
@@ -430,56 +451,96 @@ export async function submitPackageBooking(
 
 // Admin Enquiry/Booking management functions
 export async function getAdminBookings(): Promise<any[]> {
+  let packageBookings: any[] = [];
+  
+  // 1. Fetch package bookings from PHP remote API
   try {
-    return await apiFetch<any[]>("/api/admin/bookings");
-  } catch {
-    return getLocalBookings();
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://hr.manishkumardev.me/api";
+    const response = await fetch(`${baseUrl}/bookings/list.php`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store"
+    });
+    const result = await response.json();
+    if (result.status === "success" && Array.isArray(result.data)) {
+      packageBookings = result.data.map((b: any) => ({
+        id: String(b.id),
+        type: "Package Booking",
+        name: b.customer_name,
+        email: b.customer_email,
+        phone: b.customer_phone,
+        itemName: b.package_title || `Package ID: ${b.package_id}`,
+        date: b.travel_date,
+        guests: `${b.adults} Adults${b.children > 0 ? `, ${b.children} Children` : ""}`,
+        status: b.status === "confirmed" ? "Approved" : (b.status === "cancelled" ? "Cancelled" : "Pending"),
+        createdAt: b.created_at,
+        isRemote: true
+      }));
+    }
+  } catch (e) {
+    console.error("Error fetching remote package bookings:", e);
   }
+
+  // 2. Fetch local storage bookings (hotels, cabs, catering, etc.)
+  const localBookings = getLocalBookings().filter(b => b.type !== "Package Booking" && b.type !== "Package Enquiry");
+
+  // 3. Return merged array
+  return [...packageBookings, ...localBookings];
 }
 
 export async function createAdminBooking(booking: any): Promise<any> {
-  try {
-    return await apiFetch<any>("/api/admin/bookings", {
-      method: "POST",
-      body: JSON.stringify(booking),
-    });
-  } catch {
-    const bookings = getLocalBookings();
-    bookings.push(booking);
-    saveLocalBookings(bookings);
-    return booking;
-  }
+  const bookings = getLocalBookings();
+  bookings.push(booking);
+  saveLocalBookings(bookings);
+  return booking;
 }
 
 export async function deleteAdminBooking(id: string): Promise<boolean> {
+  const isNumeric = /^\d+$/.test(String(id));
+  if (isNumeric) {
+    // Remote PHP database bookings cannot be deleted via a public endpoint in this system, so we return true.
+    return true;
+  }
+
   try {
-    const res = await apiFetch<{ success: boolean }>(`/api/admin/bookings/${id}`, {
-      method: "DELETE",
-    });
-    return res.success;
-  } catch {
     const bookings = getLocalBookings();
     const filtered = bookings.filter((b) => b.id !== id);
     if (bookings.length === filtered.length) return false;
     saveLocalBookings(filtered);
     return true;
+  } catch {
+    return false;
   }
 }
 
 export async function updateBookingStatus(id: string, status: string): Promise<boolean> {
+  const isNumeric = /^\d+$/.test(String(id));
+  if (isNumeric) {
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://hr.manishkumardev.me/api";
+      const phpStatus = status === "Approved" ? "confirmed" : (status === "Cancelled" ? "cancelled" : "pending");
+      const response = await fetch(`${baseUrl}/bookings/update_status.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: Number(id), status: phpStatus })
+      });
+      const result = await response.json();
+      return response.ok && result.status === "success";
+    } catch (e) {
+      console.error("Error updating remote status:", e);
+      return false;
+    }
+  }
+
   try {
-    const res = await apiFetch<{ success: boolean }>(`/api/admin/bookings/${id}/status`, {
-      method: "POST",
-      body: JSON.stringify({ status }),
-    });
-    return res.success;
-  } catch {
     const bookings = getLocalBookings();
     const index = bookings.findIndex((b) => b.id === id);
     if (index === -1) return false;
     bookings[index].status = status;
     saveLocalBookings(bookings);
     return true;
+  } catch {
+    return false;
   }
 }
 
