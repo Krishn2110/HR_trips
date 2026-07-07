@@ -207,3 +207,22 @@ export interface ManpowerOption {
   description: string;
   qualifications: string[];
 }
+
+export interface HotelRegistration {
+  id: string;
+  ownerName: string;
+  email: string;
+  password: string;
+  phone: string;
+  hotelName: string;
+  hotelAddress: string;
+  city: string;
+  state: string;
+  pincode: string;
+  starRating: number;
+  totalRooms: number;
+  description: string;
+  amenities: string[];
+  status: "Pending" | "Approved" | "Rejected";
+  createdAt: string;
+}

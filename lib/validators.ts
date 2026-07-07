@@ -104,3 +104,46 @@ export const adminPackageSchema = z.object({
 });
 
 export type AdminPackageFormData = z.infer<typeof adminPackageSchema>;
+
+// ── Hotel Owner Registration Schema ─────────────────────────
+export const hotelRegistrationSchema = z.object({
+  ownerName: z
+    .string()
+    .min(2, "Name must be at least 2 characters")
+    .max(100, "Name is too long"),
+  email: z.string().email("Enter a valid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  phone: z
+    .string()
+    .min(10, "Enter a valid phone number")
+    .max(15, "Enter a valid phone number")
+    .regex(/^[0-9+\-\s()]+$/, "Enter a valid phone number"),
+  hotelName: z
+    .string()
+    .min(2, "Hotel name must be at least 2 characters")
+    .max(150, "Hotel name is too long"),
+  hotelAddress: z
+    .string()
+    .min(5, "Address must be at least 5 characters")
+    .max(300, "Address is too long"),
+  city: z.string().min(2, "City is required"),
+  state: z.string().min(2, "State is required"),
+  pincode: z
+    .string()
+    .min(4, "Enter a valid pincode")
+    .max(10, "Enter a valid pincode"),
+  starRating: z
+    .number({ error: "Select a star rating" })
+    .min(1, "Minimum 1 star")
+    .max(5, "Maximum 5 stars"),
+  totalRooms: z
+    .number({ error: "Enter total rooms" })
+    .min(1, "At least 1 room required")
+    .max(1000, "Maximum 1000 rooms"),
+  description: z
+    .string()
+    .min(20, "Description must be at least 20 characters")
+    .max(2000, "Description is too long"),
+});
+
+export type HotelRegistrationFormData = z.infer<typeof hotelRegistrationSchema>;

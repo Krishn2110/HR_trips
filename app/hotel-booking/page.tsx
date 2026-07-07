@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getHotels } from "@/lib/api";
 import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import HotelCard from "@/components/hotels/HotelCard";
@@ -60,6 +61,23 @@ export default async function HotelBookingPage() {
             </p>
           </div>
         )}
+
+        {/* Hotel Owner Registration CTA */}
+        <div className="mt-12 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border border-primary/15 rounded-2xl p-8 text-center">
+          <h3 className="font-heading font-bold text-ink text-xl mb-2">
+            Are You a Hotel Owner?
+          </h3>
+          <p className="text-muted text-sm max-w-lg mx-auto mb-5">
+            List your hotel on the HR Trips platform and reach thousands of travelers.
+            Enjoy seamless booking management and grow your business with us.
+          </p>
+          <Link
+            href="/hotel-registration"
+            className="inline-flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-primary to-primary-dark text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-primary/25 active:scale-[0.98] transition-all"
+          >
+            Register Your Hotel →
+          </Link>
+        </div>
       </div>
     </>
   );

@@ -12,6 +12,7 @@ import type {
   CateringOption,
   TicketOption,
   ManpowerOption,
+  HotelRegistration,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
@@ -1474,4 +1475,73 @@ export async function deleteManpower(id: string): Promise<boolean> {
     saveLocalManpower(filtered);
     return true;
   }
+}
+
+// ── Hotel Owner Registration Management ─────────────────────
+const HOTEL_REG_KEY = "hr_trips_hotel_registrations";
+
+function getLocalHotelRegistrations(): HotelRegistration[] {
+  if (!isBrowser) return [];
+  const data = localStorage.getItem(HOTEL_REG_KEY);
+  if (!data) return [];
+  return JSON.parse(data);
+}
+
+function saveLocalHotelRegistrations(regs: HotelRegistration[]) {
+  if (isBrowser) {
+    localStorage.setItem(HOTEL_REG_KEY, JSON.stringify(regs));
+  }
+}
+
+export async function getHotelRegistrations(): Promise<HotelRegistration[]> {
+  return getLocalHotelRegistrations();
+}
+
+export async function submitHotelRegistration(
+  data: Omit<HotelRegistration, "id" | "status" | "createdAt">
+): Promise<HotelRegistration> {
+  const regs = getLocalHotelRegistrations();
+
+  // Check if email already registered
+  const exists = regs.find(r => r.email === data.email);
+  if (exists) {
+    throw new Error("A hotel is already registered with this email address.");
+  }
+
+  const newReg: HotelRegistration = {
+    ...data,
+    id: `hreg-${Math.random().toString(36).substr(2, 9)}`,
+    status: "Pending",
+    createdAt: new Date().toISOString(),
+  };
+  regs.push(newReg);
+  saveLocalHotelRegistrations(regs);
+  return newReg;
+}
+
+export async function updateHotelRegistrationStatus(
+  id: string,
+  status: "Pending" | "Approved" | "Rejected"
+): Promise<boolean> {
+  const regs = getLocalHotelRegistrations();
+  const index = regs.findIndex(r => r.id === id);
+  if (index === -1) return false;
+  regs[index].status = status;
+  saveLocalHotelRegistrations(regs);
+  return true;
+}
+
+export async function deleteHotelRegistration(id: string): Promise<boolean> {
+  const regs = getLocalHotelRegistrations();
+  const filtered = regs.filter(r => r.id !== id);
+  if (regs.length === filtered.length) return false;
+  saveLocalHotelRegistrations(filtered);
+  return true;
+}
+
+export async function getHotelRegistrationByEmail(
+  email: string
+): Promise<HotelRegistration | null> {
+  const regs = getLocalHotelRegistrations();
+  return regs.find(r => r.email === email) || null;
 }
