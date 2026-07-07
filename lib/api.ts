@@ -51,7 +51,68 @@ function saveLocalPackages(packages: Package[]) {
 }
 
 // Pre-populate bookings in local storage
-const INITIAL_BOOKINGS: any[] = [];
+const INITIAL_BOOKINGS: any[] = [
+  {
+    id: "req-1",
+    type: "Package Booking",
+    name: "Ramesh Sharma",
+    email: "ramesh@example.com",
+    phone: "9876543210",
+    itemName: "Patna to Nepal Tour Package (3-Star Hotel)",
+    date: "15 Jul 2026",
+    guests: "2 Adults, 1 Children",
+    status: "Pending",
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: "req-2",
+    type: "Hotel Booking",
+    name: "Siddharth Verma",
+    email: "siddharth@example.com",
+    phone: "8765432109",
+    itemName: "Hotel Maurya Patna (Club Room)",
+    date: "20 Jul 2026 to 22 Jul 2026",
+    guests: "2 Adults",
+    status: "Approved",
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: "req-3",
+    type: "Cab Booking",
+    name: "Vikram Singh",
+    email: "vikram@example.com",
+    phone: "7654321098",
+    itemName: "Toyota Innova Crysta (Outstation)",
+    date: "18 Jul 2026",
+    guests: "4 Pax",
+    status: "Pending",
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: "req-4",
+    type: "Banquet Booking",
+    name: "Anjali Gupta",
+    email: "anjali@example.com",
+    phone: "6543210987",
+    itemName: "Royal Celebration Hall (AC Hall)",
+    date: "25 Dec 2026",
+    guests: "250 Pax",
+    status: "Completed",
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: "req-5",
+    type: "Catering Booking",
+    name: "Aditya Roy",
+    email: "aditya@example.com",
+    phone: "5432109876",
+    itemName: "Premium Veg Buffet (Mughlai Package)",
+    date: "12 Aug 2026",
+    guests: "150 Pax",
+    status: "Cancelled",
+    createdAt: new Date().toISOString()
+  }
+];
 
 function getLocalBookings(): any[] {
   if (!isBrowser) return INITIAL_BOOKINGS;

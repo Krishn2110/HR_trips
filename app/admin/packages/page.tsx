@@ -7,11 +7,19 @@ import {
   Palmtree, Loader2, CheckCircle2, XCircle, Mail, Phone, Calendar, Users 
 } from "lucide-react";
 import Image from "next/image";
+import { 
+  getPackages, 
+  createOrUpdatePackage, 
+  deletePackage, 
+  getAdminBookings, 
+  updateBookingStatus as apiUpdateBookingStatus,
+  deleteAdminBooking
+} from "@/lib/api";
 
-// Booking Interface matching exactly what the PHP list.php API returns
+// Booking Interface matching package requests structure
 interface BookingRequest {
-  id: number;
-  package_id: number;
+  id: string | number;
+  package_id: string | number;
   package_title: string;
   customer_name: string;
   customer_email: string;
@@ -35,6 +43,7 @@ export default function AdminPackagesPage() {
   // Bookings State
   const [bookings, setBookings] = useState<BookingRequest[]>([]);
   const [isBookingsLoading, setIsBookingsLoading] = useState(false);
+  const [bookingsSearchQuery, setBookingsSearchQuery] = useState("");
 
   // Custom lists state inside form
   const [highlightInput, setHighlightInput] = useState("");
@@ -45,24 +54,26 @@ export default function AdminPackagesPage() {
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Filtered package bookings
+  const filteredBookings = bookings.filter((booking) => {
+    const q = bookingsSearchQuery.toLowerCase();
+    return (
+      (booking.customer_name || "").toLowerCase().includes(q) ||
+      (booking.customer_email || "").toLowerCase().includes(q) ||
+      (booking.customer_phone || "").toLowerCase().includes(q) ||
+      (booking.package_title || "").toLowerCase().includes(q) ||
+      String(booking.id).includes(q)
+    );
+  });
+
   // --- API: FETCH ALL PACKAGES ---
   const loadPackages = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/packages/list.php`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store"
-      });
-      const result = await response.json();
-      
-      if (response.ok && result.status === "success") {
-        setPackages(result.data);
-      } else {
-        console.error("Failed to load packages:", result.message);
-      }
+      const data = await getPackages();
+      setPackages(data);
     } catch (e) {
-      console.error("Network error while loading packages:", e);
+      console.error("Failed to load packages:", e);
     } finally {
       setIsLoading(false);
     }
@@ -72,43 +83,53 @@ export default function AdminPackagesPage() {
   const loadBookings = async () => {
     setIsBookingsLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings/list.php`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store"
+      const data = await getAdminBookings();
+      // Filter only package bookings/enquiries
+      const filtered = data.filter((b: any) => {
+        const type = (b.type || "").toLowerCase();
+        const item = (b.itemName || "").toLowerCase();
+        return type.includes("package") || item.includes("package");
       });
-      const result = await response.json();
       
-      if (response.ok && result.status === "success") {
-        setBookings(result.data);
-      }
+      // Map to local BookingRequest properties
+      const mapped = filtered.map((b: any) => ({
+        id: b.id,
+        package_id: b.packageId || 0,
+        package_title: b.itemName,
+        customer_name: b.name,
+        customer_email: b.email,
+        customer_phone: b.phone,
+        travel_date: b.date,
+        adults: b.adults || (typeof b.guests === "number" ? b.guests : parseInt(b.guests) || 1),
+        children: b.children || 0,
+        special_requests: b.specialRequests || "",
+        status: b.status?.toLowerCase() === "approved" ? "confirmed" : (b.status?.toLowerCase() || "pending"),
+        created_at: b.createdAt || new Date().toISOString()
+      }));
+      setBookings(mapped);
     } catch (e) {
-      console.error("Network error loading bookings:", e);
+      console.error("Error loading bookings:", e);
     } finally {
       setIsBookingsLoading(false);
     }
   };
 
   // --- API: UPDATE BOOKING STATUS ---
-  const updateBookingStatus = async (id: number, newStatus: string) => {
+  const updateBookingStatus = async (id: string | number, newStatus: string) => {
     if (!confirm(`Are you sure you want to mark this booking as ${newStatus}?`)) return;
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings/update_status.php`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status: newStatus })
-      });
-      const result = await response.json();
+      // Map local status to dashboard status consistency (Confirmed -> Approved)
+      const apiStatus = newStatus === "confirmed" ? "Approved" : (newStatus.charAt(0).toUpperCase() + newStatus.slice(1));
+      const success = await apiUpdateBookingStatus(String(id), apiStatus);
 
-      if (response.ok && result.status === "success") {
-        // Update the UI immediately without reloading the page
+      if (success) {
         setBookings(prev => prev.map(b => b.id === id ? { ...b, status: newStatus as any } : b));
       } else {
-        alert(result.message || "Failed to update booking status");
+        alert("Failed to update booking status");
       }
     } catch (e) {
-      alert("Network error updating status.");
+      alert("Error updating status.");
     }
   };
 
@@ -153,20 +174,14 @@ export default function AdminPackagesPage() {
     if (!confirm("Are you sure you want to delete this package? This action cannot be undone.")) return;
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/packages/delete.php`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-      const result = await response.json();
-
-      if (response.ok && result.status === "success") {
+      const success = await deletePackage(String(id));
+      if (success) {
         setPackages(prev => prev.filter(p => p.id !== id));
       } else {
-        alert(result.message || "Failed to delete package");
+        alert("Failed to delete package");
       }
     } catch (e) {
-      alert("Network error. Could not delete package.");
+      alert("Error deleting package.");
     }
   };
 
@@ -229,26 +244,11 @@ export default function AdminPackagesPage() {
         ]
       };
       
-      const endpoint = payload.id 
-        ? `${process.env.NEXT_PUBLIC_API_URL}/packages/update.php` 
-        : `${process.env.NEXT_PUBLIC_API_URL}/packages/create.php`;
-
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      
-      const result = await response.json();
-
-      if (response.ok && result.status === "success") {
-        await loadPackages(); 
-        setModalOpen(false);
-      } else {
-        alert(result.message || "Error saving package");
-      }
+      await createOrUpdatePackage(payload as any);
+      await loadPackages(); 
+      setModalOpen(false);
     } catch (e) {
-      alert("Network Error: Could not save package.");
+      alert("Error: Could not save package.");
     } finally {
       setIsSaving(false);
     }
@@ -266,17 +266,20 @@ export default function AdminPackagesPage() {
             Create, modify, and delete the holiday tour packages listed on your public website.
           </p>
         </div>
-        <button
-          onClick={openAddModal}
-          className="inline-flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl text-xs font-semibold hover:shadow-lg hover:shadow-primary/25 active:scale-[0.98] transition-all cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          Add New Package
-        </button>
+        
+        {activeTab === "catalog" && (
+          <button
+            onClick={openAddModal}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl text-xs font-semibold hover:shadow-lg hover:shadow-primary/25 active:scale-[0.98] transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Add New Package
+          </button>
+        )}
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-border/40 gap-4 mb-6">
+      <div className="border-b border-border/50 flex gap-6">
         <button
           onClick={() => setActiveTab("catalog")}
           className={`pb-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
@@ -302,6 +305,19 @@ export default function AdminPackagesPage() {
       {activeTab === "bookings" ? (
         /* --- INTEGRATED BOOKINGS TAB --- */
         <div className="space-y-6">
+          {/* Search bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex-1 max-w-md">
+              <input
+                type="text"
+                placeholder="Search by name, email, phone, package title or PNR..."
+                value={bookingsSearchQuery}
+                onChange={(e) => setBookingsSearchQuery(e.target.value)}
+                className="w-full px-4 py-2.5 bg-white border border-border rounded-xl text-xs text-ink focus:border-primary outline-none shadow-sm transition-all"
+              />
+            </div>
+          </div>
+
           {isBookingsLoading ? (
             <div className="py-20 flex flex-col items-center justify-center text-center">
               <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
@@ -312,6 +328,10 @@ export default function AdminPackagesPage() {
               <Calendar className="w-12 h-12 text-muted/60 mx-auto mb-4" />
               <h3 className="font-heading font-bold text-ink text-lg">No bookings yet</h3>
               <p className="text-muted text-xs">When customers book a package, they will appear here.</p>
+            </div>
+          ) : filteredBookings.length === 0 ? (
+            <div className="py-16 text-center border border-dashed border-border rounded-2xl bg-white p-8 text-muted text-xs">
+              No matching package bookings found.
             </div>
           ) : (
             <div className="bg-white rounded-2xl border border-border/50 shadow-sm overflow-hidden overflow-x-auto">
@@ -327,7 +347,7 @@ export default function AdminPackagesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/30">
-                  {bookings.map((booking) => (
+                  {filteredBookings.map((booking) => (
                     <tr key={booking.id} className="hover:bg-surface/30 transition-colors">
                       {/* ID and Date */}
                       <td className="px-6 py-4">
