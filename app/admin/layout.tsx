@@ -20,7 +20,8 @@ import {
   Utensils,
   Ticket,
   Briefcase,
-  Building2
+  Building2,
+  MessageSquare
 } from "lucide-react";
 
 export default function AdminLayout({
@@ -101,6 +102,11 @@ export default function AdminLayout({
       label: "Hotel Registrations",
       href: "/admin/hotel-registrations",
       icon: Building2,
+    },
+    {
+      label: "Enquiries",
+      href: "/admin/enquiries",
+      icon: MessageSquare,
     },
   ];
 

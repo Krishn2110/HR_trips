@@ -544,6 +544,94 @@ export async function updateBookingStatus(id: string, status: string): Promise<b
   }
 }
 
+// Admin Enquiries management functions
+export async function getAdminEnquiries(): Promise<any[]> {
+  let packageEnquiries: any[] = [];
+  
+  // 1. Fetch enquiries from PHP remote API
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://hr.manishkumardev.me/api";
+    const response = await fetch(`${baseUrl}/enquiries/list.php`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store"
+    });
+    const result = await response.json();
+    if (result.status === "success" && Array.isArray(result.data)) {
+      packageEnquiries = result.data.map((e: any) => ({
+        id: String(e.id),
+        type: "Package Enquiry",
+        name: e.customer_name,
+        email: e.customer_email,
+        phone: e.customer_phone,
+        itemName: e.package_title || `Package ID: ${e.package_id}`,
+        date: e.travel_date,
+        guests: e.pax_count || 1,
+        status: e.status === "confirmed" ? "Approved" : (e.status === "cancelled" ? "Cancelled" : "Pending"),
+        createdAt: e.created_at,
+        isRemote: true
+      }));
+    }
+  } catch (e) {
+    console.error("Error fetching remote package enquiries:", e);
+  }
+
+  // 2. Fetch local storage enquiries (Package Enquiry and Contact Request)
+  const localEnquiries = getLocalBookings().filter(b => b.type === "Package Enquiry" || b.type === "Contact Request");
+
+  // 3. Return merged array
+  return [...packageEnquiries, ...localEnquiries];
+}
+
+export async function deleteAdminEnquiry(id: string): Promise<boolean> {
+  const isNumeric = /^\d+$/.test(String(id));
+  if (isNumeric) {
+    return true;
+  }
+
+  try {
+    const bookings = getLocalBookings();
+    const filtered = bookings.filter((b) => b.id !== id);
+    if (bookings.length === filtered.length) return false;
+    saveLocalBookings(filtered);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function updateEnquiryStatus(id: string, status: string): Promise<boolean> {
+  const isNumeric = /^\d+$/.test(String(id));
+  if (isNumeric) {
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://hr.manishkumardev.me/api";
+      const phpStatus = status === "Approved" ? "confirmed" : (status === "Cancelled" ? "cancelled" : "pending");
+      const response = await fetch(`${baseUrl}/enquiries/update_status.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: Number(id), status: phpStatus })
+      });
+      const result = await response.json();
+      return response.ok && result.status === "success";
+    } catch (e) {
+      console.error("Error updating remote enquiry status:", e);
+      return false;
+    }
+  }
+
+  try {
+    const bookings = getLocalBookings();
+    const index = bookings.findIndex((b) => b.id === id);
+    if (index === -1) return false;
+    bookings[index].status = status;
+    saveLocalBookings(bookings);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+
 // ── Mock Data ───────────────────────────────────────────────
 export const MOCK_PACKAGES: Package[] = [
   {
