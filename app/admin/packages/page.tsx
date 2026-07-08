@@ -7,16 +7,7 @@ import {
   Palmtree, Loader2, CheckCircle2, XCircle, Mail, Phone, Calendar, Users 
 } from "lucide-react";
 import Image from "next/image";
-import { 
-  getPackages, 
-  createOrUpdatePackage, 
-  deletePackage, 
-  getAdminBookings, 
-  updateBookingStatus as apiUpdateBookingStatus,
-  deleteAdminBooking
-} from "@/lib/api";
 
-// Booking Interface matching package requests structure
 interface BookingRequest {
   id: string | number;
   package_id: string | number;
@@ -70,8 +61,15 @@ export default function AdminPackagesPage() {
   const loadPackages = async () => {
     setIsLoading(true);
     try {
-      const data = await getPackages();
-      setPackages(data);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/packages/list.php`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store"
+      });
+      const result = await response.json();
+      if (response.ok && result.status === "success") {
+        setPackages(result.data);
+      }
     } catch (e) {
       console.error("Failed to load packages:", e);
     } finally {
@@ -83,30 +81,15 @@ export default function AdminPackagesPage() {
   const loadBookings = async () => {
     setIsBookingsLoading(true);
     try {
-      const data = await getAdminBookings();
-      // Filter only package bookings/enquiries
-      const filtered = data.filter((b: any) => {
-        const type = (b.type || "").toLowerCase();
-        const item = (b.itemName || "").toLowerCase();
-        return type.includes("package") || item.includes("package");
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings/list.php`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store"
       });
-      
-      // Map to local BookingRequest properties
-      const mapped = filtered.map((b: any) => ({
-        id: b.id,
-        package_id: b.packageId || 0,
-        package_title: b.itemName,
-        customer_name: b.name,
-        customer_email: b.email,
-        customer_phone: b.phone,
-        travel_date: b.date,
-        adults: b.adults || (typeof b.guests === "number" ? b.guests : parseInt(b.guests) || 1),
-        children: b.children || 0,
-        special_requests: b.specialRequests || "",
-        status: b.status?.toLowerCase() === "approved" ? "confirmed" : (b.status?.toLowerCase() || "pending"),
-        created_at: b.createdAt || new Date().toISOString()
-      }));
-      setBookings(mapped);
+      const result = await response.json();
+      if (response.ok && result.status === "success") {
+        setBookings(result.data);
+      }
     } catch (e) {
       console.error("Error loading bookings:", e);
     } finally {
@@ -119,14 +102,17 @@ export default function AdminPackagesPage() {
     if (!confirm(`Are you sure you want to mark this booking as ${newStatus}?`)) return;
     
     try {
-      // Map local status to dashboard status consistency (Confirmed -> Approved)
-      const apiStatus = newStatus === "confirmed" ? "Approved" : (newStatus.charAt(0).toUpperCase() + newStatus.slice(1));
-      const success = await apiUpdateBookingStatus(String(id), apiStatus);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings/update_status.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: newStatus })
+      });
+      const result = await response.json();
 
-      if (success) {
+      if (response.ok && result.status === "success") {
         setBookings(prev => prev.map(b => b.id === id ? { ...b, status: newStatus as any } : b));
       } else {
-        alert("Failed to update booking status");
+        alert(result.message || "Failed to update booking status");
       }
     } catch (e) {
       alert("Error updating status.");
@@ -137,7 +123,6 @@ export default function AdminPackagesPage() {
     loadPackages();
   }, []);
 
-  // Reload bookings whenever the Bookings tab is clicked
   useEffect(() => {
     if (activeTab === "bookings") {
       loadBookings();
@@ -174,11 +159,17 @@ export default function AdminPackagesPage() {
     if (!confirm("Are you sure you want to delete this package? This action cannot be undone.")) return;
     
     try {
-      const success = await deletePackage(String(id));
-      if (success) {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/packages/delete.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const result = await response.json();
+
+      if (response.ok && result.status === "success") {
         setPackages(prev => prev.filter(p => p.id !== id));
       } else {
-        alert("Failed to delete package");
+        alert(result.message || "Failed to delete package");
       }
     } catch (e) {
       alert("Error deleting package.");
@@ -244,9 +235,24 @@ export default function AdminPackagesPage() {
         ]
       };
       
-      await createOrUpdatePackage(payload as any);
-      await loadPackages(); 
-      setModalOpen(false);
+      const endpoint = payload.id 
+        ? `${process.env.NEXT_PUBLIC_API_URL}/packages/update.php` 
+        : `${process.env.NEXT_PUBLIC_API_URL}/packages/create.php`;
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      
+      const result = await response.json();
+
+      if (response.ok && result.status === "success") {
+        await loadPackages(); 
+        setModalOpen(false);
+      } else {
+        alert(result.message || "Error saving package");
+      }
     } catch (e) {
       alert("Error: Could not save package.");
     } finally {
@@ -256,7 +262,6 @@ export default function AdminPackagesPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="font-heading font-black text-2xl lg:text-3xl text-ink">
@@ -278,7 +283,6 @@ export default function AdminPackagesPage() {
         )}
       </div>
 
-      {/* Tabs */}
       <div className="border-b border-border/50 flex gap-6">
         <button
           onClick={() => setActiveTab("catalog")}
@@ -303,14 +307,12 @@ export default function AdminPackagesPage() {
       </div>
 
       {activeTab === "bookings" ? (
-        /* --- INTEGRATED BOOKINGS TAB --- */
         <div className="space-y-6">
-          {/* Search bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex-1 max-w-md">
               <input
                 type="text"
-                placeholder="Search by name, email, phone, package title or PNR..."
+                placeholder="Search by name, email, phone, package title or ID..."
                 value={bookingsSearchQuery}
                 onChange={(e) => setBookingsSearchQuery(e.target.value)}
                 className="w-full px-4 py-2.5 bg-white border border-border rounded-xl text-xs text-ink focus:border-primary outline-none shadow-sm transition-all"
@@ -349,15 +351,12 @@ export default function AdminPackagesPage() {
                 <tbody className="divide-y divide-border/30">
                   {filteredBookings.map((booking) => (
                     <tr key={booking.id} className="hover:bg-surface/30 transition-colors">
-                      {/* ID and Date */}
                       <td className="px-6 py-4">
                         <span className="font-semibold text-ink block">#{booking.id}</span>
                         <span className="text-[10px] text-muted">
                           {new Date(booking.created_at).toLocaleDateString()}
                         </span>
                       </td>
-
-                      {/* Customer Info mapped correctly from PHP API (snake_case) */}
                       <td className="px-6 py-4">
                         <span className="font-semibold text-ink block">{booking.customer_name}</span>
                         <span className="text-xs text-muted flex items-center gap-1 mt-1">
@@ -367,8 +366,6 @@ export default function AdminPackagesPage() {
                           <Phone className="w-3 h-3"/> {booking.customer_phone}
                         </span>
                       </td>
-
-                      {/* Travel Date and Guests */}
                       <td className="px-6 py-4">
                         <span className="font-semibold text-ink flex items-center gap-1">
                           <Calendar className="w-3.5 h-3.5 text-primary"/> {booking.travel_date}
@@ -378,8 +375,6 @@ export default function AdminPackagesPage() {
                           {booking.children > 0 && `, ${booking.children} Children`}
                         </span>
                       </td>
-
-                      {/* Package Title and Special Requests */}
                       <td className="px-6 py-4 max-w-[250px] whitespace-normal break-words">
                         <span className="font-semibold text-primary block">
                           {booking.package_title || `Package ID: ${booking.package_id}`}
@@ -388,8 +383,6 @@ export default function AdminPackagesPage() {
                           {booking.special_requests || "No special requests"}
                         </span>
                       </td>
-
-                      {/* Status Badge */}
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full ${
                           booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
@@ -399,8 +392,6 @@ export default function AdminPackagesPage() {
                           {booking.status}
                         </span>
                       </td>
-
-                      {/* Action Buttons */}
                       <td className="px-6 py-4 text-right">
                         {booking.status === 'pending' && (
                           <div className="flex justify-end gap-2">
@@ -430,7 +421,6 @@ export default function AdminPackagesPage() {
         </div>
       ) : (
         <>
-          {/* --- CATALOG MANAGEMENT TAB --- */}
           {isLoading ? (
             <div className="py-20 flex flex-col items-center justify-center text-center">
               <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin mb-3" />
@@ -555,7 +545,7 @@ export default function AdminPackagesPage() {
                     type="text"
                     name="title"
                     required
-                    value={currentPkg.title}
+                    value={currentPkg.title || ""}
                     onChange={handleInputChange}
                     placeholder="e.g. Patna to Kathmandu Tour"
                     className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
@@ -569,7 +559,7 @@ export default function AdminPackagesPage() {
                     type="text"
                     name="destination"
                     required
-                    value={currentPkg.destination}
+                    value={currentPkg.destination || ""}
                     onChange={handleInputChange}
                     placeholder="e.g. Nepal"
                     className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
@@ -583,7 +573,7 @@ export default function AdminPackagesPage() {
                     type="text"
                     name="duration"
                     required
-                    value={currentPkg.duration}
+                    value={currentPkg.duration || ""}
                     onChange={handleInputChange}
                     placeholder="e.g. 4 Nights / 5 Days"
                     className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
@@ -597,7 +587,7 @@ export default function AdminPackagesPage() {
                     type="number"
                     name="startingPrice"
                     required
-                    value={currentPkg.startingPrice || ""}
+                    value={currentPkg.startingPrice ?? ""}
                     onChange={handleInputChange}
                     placeholder="e.g. 12500"
                     className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
@@ -609,7 +599,7 @@ export default function AdminPackagesPage() {
                   <label className="block text-[11px] uppercase tracking-wider font-semibold text-muted mb-1.5">Category *</label>
                   <select
                     name="category"
-                    value={currentPkg.category}
+                    value={currentPkg.category || "domestic"}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none cursor-pointer"
                   >
@@ -623,7 +613,7 @@ export default function AdminPackagesPage() {
                   <input
                     type="text"
                     name="image"
-                    value={currentPkg.image}
+                    value={currentPkg.image || ""}
                     onChange={handleInputChange}
                     placeholder="Unsplash / external image link"
                     className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
@@ -651,7 +641,7 @@ export default function AdminPackagesPage() {
                     name="overview"
                     rows={4}
                     required
-                    value={currentPkg.overview}
+                    value={currentPkg.overview || ""}
                     onChange={handleInputChange}
                     placeholder="Describe the tour itinerary, beauty and details..."
                     className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none resize-none"
