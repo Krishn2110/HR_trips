@@ -252,7 +252,7 @@ export default function AdminEnquiriesPage() {
                         <td className="py-4 px-4 text-center">
                           <select
                             value={e.status === "confirmed" ? "Approved" : e.status}
-                            onChange={(eTarget) => handleStatusChange(e.id, eTarget.value)}
+                            onChange={(evt) => handleStatusChange(e.id, evt.target.value)}
                             className={`px-2.5 py-1 text-[11px] font-semibold rounded-full border outline-none cursor-pointer transition-colors ${getStatusBadgeClass(e.status)}`}
                           >
                             <option value="Pending">Pending</option>
