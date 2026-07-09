@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getAdminEnquiries, updateEnquiryStatus, deleteAdminEnquiry } from "@/lib/api";
 import { 
   Users, 
   Clock, 
@@ -11,22 +10,22 @@ import {
   Phone,
   Calendar,
   Trash2,
-  HelpCircle,
-  Search,
-  MessageSquare
+  MessageSquare,
+  Eye
 } from "lucide-react";
 
 interface EnquiryRequest {
-  id: string;
-  type: string;
-  name: string;
-  email: string;
-  phone: string;
-  itemName: string;
-  date: string;
-  guests: any;
-  status: string;
-  createdAt: string;
+  id: string | number;
+  package_id: string | number;
+  package_title: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  travel_date: string | null;
+  pax_count: number;
+  message: string;
+  status: "unread" | "read" | "replied";
+  created_at: string;
 }
 
 export default function AdminEnquiriesPage() {
@@ -35,13 +34,24 @@ export default function AdminEnquiriesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
+  // --- API: FETCH ALL ENQUIRIES ---
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const data = await getAdminEnquiries();
-      setEnquiries(data);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/enquiries/list.php`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store"
+      });
+      const result = await response.json();
+      
+      if (response.ok && result.status === "success") {
+        setEnquiries(result.data);
+      } else {
+        console.error("Failed to load enquiries:", result.message);
+      }
     } catch (e) {
-      console.error("Failed to load admin enquiries data", e);
+      console.error("Network error while loading enquiries:", e);
     } finally {
       setIsLoading(false);
     }
@@ -51,68 +61,79 @@ export default function AdminEnquiriesPage() {
     loadData();
   }, []);
 
-  const handleStatusChange = async (id: string, newStatus: string) => {
+  // --- API: UPDATE STATUS ---
+  const handleStatusChange = async (id: string | number, newStatus: string) => {
     try {
-      const success = await updateEnquiryStatus(id, newStatus);
-      if (success) {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/enquiries/update_status.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: newStatus })
+      });
+      const result = await response.json();
+
+      if (response.ok && result.status === "success") {
         setEnquiries(prev => 
-          prev.map(e => e.id === id ? { ...e, status: newStatus } : e)
+          prev.map(e => e.id === id ? { ...e, status: newStatus as any } : e)
         );
+      } else {
+        alert(result.message || "Failed to update enquiry status");
       }
     } catch (e) {
-      alert("Failed to update enquiry status");
+      alert("Network Error: Could not update status");
     }
   };
 
-  const handleDelete = async (id: string) => {
+  // --- API: DELETE ENQUIRY ---
+  const handleDelete = async (id: string | number) => {
     if (!confirm("Are you sure you want to delete this enquiry request?")) return;
     try {
-      const success = await deleteAdminEnquiry(id);
-      if (success) {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/enquiries/delete.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id })
+      });
+      const result = await response.json();
+
+      if (response.ok && result.status === "success") {
         setEnquiries(prev => prev.filter(e => e.id !== id));
+      } else {
+        alert(result.message || "Failed to delete enquiry request");
       }
     } catch (e) {
-      alert("Failed to delete enquiry request");
+      alert("Network Error: Could not delete enquiry");
     }
   };
 
   const getStatusBadgeClass = (status: string) => {
     switch (status?.toLowerCase()) {
-      case "pending":
-        return "bg-amber-50 text-amber-700 border-amber-200/50";
-      case "approved":
-      case "confirmed":
-      case "approve":
-        return "bg-emerald-50 text-emerald-700 border-emerald-200/50";
-      case "completed":
-        return "bg-blue-50 text-blue-700 border-blue-200/50";
-      case "cancelled":
+      case "unread":
         return "bg-rose-50 text-rose-700 border-rose-200/50";
+      case "read":
+        return "bg-blue-50 text-blue-700 border-blue-200/50";
+      case "replied":
+        return "bg-emerald-50 text-emerald-700 border-emerald-200/50";
       default:
         return "bg-gray-50 text-gray-700 border-gray-200/50";
     }
   };
 
-  // Stats calculation
+  // Stats calculation based on new enums
   const totalEnquiries = enquiries.length;
-  const pendingCount = enquiries.filter(e => e.status?.toLowerCase() === "pending").length;
-  const approvedCount = enquiries.filter(e => {
-    const s = e.status?.toLowerCase();
-    return s === "approved" || s === "confirmed" || s === "approve";
-  }).length;
-  const cancelledCount = enquiries.filter(e => e.status?.toLowerCase() === "cancelled").length;
+  const unreadCount = enquiries.filter(e => e.status === "unread").length;
+  const readCount = enquiries.filter(e => e.status === "read").length;
+  const repliedCount = enquiries.filter(e => e.status === "replied").length;
 
   // Filter list of enquiries for the table view
   const filteredList = enquiries.filter(e => {
     const query = searchQuery.toLowerCase();
     const matchesSearch = 
-      (e.name || "").toLowerCase().includes(query) ||
-      (e.email || "").toLowerCase().includes(query) ||
-      (e.phone || "").toLowerCase().includes(query) ||
-      (e.itemName || "").toLowerCase().includes(query) ||
-      (e.type || "").toLowerCase().includes(query);
+      (e.customer_name || "").toLowerCase().includes(query) ||
+      (e.customer_email || "").toLowerCase().includes(query) ||
+      (e.customer_phone || "").toLowerCase().includes(query) ||
+      (e.package_title || "").toLowerCase().includes(query) ||
+      String(e.id).includes(query);
       
-    const matchesStatus = statusFilter === "all" || e.status?.toLowerCase() === statusFilter?.toLowerCase() || (statusFilter === "Approved" && (e.status === "confirmed" || e.status === "Approved"));
+    const matchesStatus = statusFilter === "all" || e.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -151,9 +172,9 @@ export default function AdminEnquiriesPage() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               { label: "Total Enquiries", value: totalEnquiries, icon: MessageSquare, color: "bg-white border border-border/50", iconColor: "text-primary bg-primary-light" },
-              { label: "Pending Review", value: pendingCount, icon: Clock, color: "bg-amber-50/50 border border-amber-200/40 text-amber-900", iconColor: "text-amber-600 bg-amber-100/60" },
-              { label: "Approved/Confirmed", value: approvedCount, icon: CheckCircle, color: "bg-emerald-50/50 border border-emerald-200/40 text-emerald-900", iconColor: "text-emerald-600 bg-emerald-100/60" },
-              { label: "Cancelled", value: cancelledCount, icon: Trash2, color: "bg-rose-50/50 border border-rose-200/40 text-rose-900", iconColor: "text-rose-600 bg-rose-100/60" },
+              { label: "Unread", value: unreadCount, icon: Clock, color: "bg-rose-50/50 border border-rose-200/40 text-rose-900", iconColor: "text-rose-600 bg-rose-100/60" },
+              { label: "Read", value: readCount, icon: Eye, color: "bg-blue-50/50 border border-blue-200/40 text-blue-900", iconColor: "text-blue-600 bg-blue-100/60" },
+              { label: "Replied", value: repliedCount, icon: CheckCircle, color: "bg-emerald-50/50 border border-emerald-200/40 text-emerald-900", iconColor: "text-emerald-600 bg-emerald-100/60" },
             ].map((stat, idx) => {
               const Icon = stat.icon;
               return (
@@ -202,9 +223,9 @@ export default function AdminEnquiriesPage() {
                   className="px-3.5 py-2.5 bg-surface rounded-xl border border-border text-xs text-ink outline-none cursor-pointer focus:border-primary"
                 >
                   <option value="all">All Statuses</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Approved">Approved</option>
-                  <option value="Cancelled">Cancelled</option>
+                  <option value="unread">Unread</option>
+                  <option value="read">Read</option>
+                  <option value="replied">Replied</option>
                 </select>
               </div>
             </div>
@@ -218,46 +239,55 @@ export default function AdminEnquiriesPage() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-border/50 text-[10px] uppercase font-bold text-muted bg-surface/30">
+                      <th className="py-3 px-4">Date & ID</th>
                       <th className="py-3 px-4">Customer</th>
-                      <th className="py-3 px-4">Requested Tour/Service</th>
-                      <th className="py-3 px-4">Travel Date / Details</th>
-                      <th className="py-3 px-4">Guests/Pax</th>
+                      <th className="py-3 px-4">Package / Details</th>
+                      <th className="py-3 px-4 max-w-[250px]">Message</th>
                       <th className="py-3 px-4 text-center">Status</th>
                       <th className="py-3 px-4 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/40 text-xs">
                     {filteredList.map((e) => (
-                      <tr key={e.id} className="hover:bg-surface/20 transition-colors">
+                      <tr key={e.id} className="hover:bg-surface/20 transition-colors align-top">
                         <td className="py-4 px-4">
-                          <div className="font-semibold text-ink">{e.name}</div>
+                          <span className="font-semibold text-ink block">#{e.id}</span>
+                          <span className="text-[10px] text-muted">
+                            {new Date(e.created_at).toLocaleDateString()}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="font-semibold text-ink">{e.customer_name}</div>
                           <div className="text-[10px] text-muted space-y-0.5 mt-1">
-                            <span className="flex items-center gap-1"><Mail className="w-3 h-3 text-primary" /> {e.email}</span>
-                            <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-primary" /> {e.phone}</span>
+                            <span className="flex items-center gap-1"><Mail className="w-3 h-3 text-primary shrink-0" /> {e.customer_email}</span>
+                            <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-primary shrink-0" /> {e.customer_phone}</span>
                           </div>
                         </td>
-                        <td className="py-4 px-4 font-medium text-ink max-w-[220px] truncate">
-                          {e.itemName}
-                          <span className="block text-[9px] font-bold text-primary mt-1 uppercase">{e.type}</span>
+                        <td className="py-4 px-4 font-medium text-ink max-w-[200px] truncate">
+                          {e.package_title || `Package ID: ${e.package_id}`}
+                          
+                          {/* Only show travel date/pax if the customer provided them */}
+                          {(e.travel_date || e.pax_count > 0) && (
+                            <div className="text-[10px] text-muted mt-1 space-y-0.5 font-normal">
+                              {e.travel_date && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {e.travel_date}</span>}
+                              {e.pax_count > 0 && <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {e.pax_count} Travelers</span>}
+                            </div>
+                          )}
                         </td>
-                        <td className="py-4 px-4 text-muted">
-                          <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {e.date}</span>
-                        </td>
-                        <td className="py-4 px-4 text-ink font-semibold">
-                          <span className="text-[11px] flex items-center gap-1">
-                            <Users className="w-3.5 h-3.5 text-muted shrink-0" />
-                            {e.guests} Pax
+                        <td className="py-4 px-4 text-muted max-w-[250px] whitespace-normal break-words">
+                          <span className="line-clamp-3 text-[11px]" title={e.message}>
+                            {e.message || <i className="text-muted/50">No additional message provided.</i>}
                           </span>
                         </td>
                         <td className="py-4 px-4 text-center">
                           <select
-                            value={e.status === "confirmed" ? "Approved" : e.status}
+                            value={e.status}
                             onChange={(evt) => handleStatusChange(e.id, evt.target.value)}
-                            className={`px-2.5 py-1 text-[11px] font-semibold rounded-full border outline-none cursor-pointer transition-colors ${getStatusBadgeClass(e.status)}`}
+                            className={`px-2.5 py-1 text-[10px] font-semibold rounded-full border outline-none cursor-pointer transition-colors uppercase tracking-wider ${getStatusBadgeClass(e.status)}`}
                           >
-                            <option value="Pending">Pending</option>
-                            <option value="Approved">Approved</option>
-                            <option value="Cancelled">Cancelled</option>
+                            <option value="unread">Unread</option>
+                            <option value="read">Read</option>
+                            <option value="replied">Replied</option>
                           </select>
                         </td>
                         <td className="py-4 px-4 text-right">
