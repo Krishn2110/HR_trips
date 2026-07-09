@@ -23,7 +23,8 @@ import {
   Trash2,
   Edit3,
   LogOut,
-  FolderLock
+  Loader2,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
