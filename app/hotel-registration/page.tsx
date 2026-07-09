@@ -21,7 +21,8 @@ import {
   CreditCard,
   Image as ImageIcon,
   Camera,
-  Map
+  Map,
+  X
 } from "lucide-react";
 import { hotelRegistrationSchema, type HotelRegistrationFormData } from "@/lib/validators";
 import { submitHotelRegistration } from "@/lib/api";
