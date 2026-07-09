@@ -37,11 +37,37 @@ export default function HotelRegistrationPage() {
     handleSubmit,
     reset,
     trigger,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<HotelRegistrationFormData>({
     resolver: zodResolver(hotelRegistrationSchema),
     mode: "onTouched"
   });
+
+  const watchRoomPic = watch("roomPic");
+  const watchReceptionPic = watch("receptionPic");
+  const watchBathroomPic = watch("bathroomPic");
+  const watchInteriorExteriorPic = watch("interiorExteriorPic");
+
+  const handleImageUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    field: keyof HotelRegistrationFormData
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Please upload an image smaller than 2MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setValue(field, reader.result as string, { shouldValidate: true });
+    };
+    reader.readAsDataURL(file);
+  };
 
   const nextStep = async () => {
     // Validate current step fields before proceeding
@@ -481,65 +507,133 @@ export default function HotelRegistrationPage() {
                   <div className="bg-white rounded-2xl border border-border/50 shadow-sm p-6 space-y-6">
                     <h3 className="font-heading font-bold text-ink text-base flex items-center gap-2 border-b border-border/40 pb-3">
                       <Camera className="w-5 h-5 text-primary" />
-                      Hotel Photos (Image URLs)
+                      Hotel Photos (File Uploads)
                     </h3>
                     
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      {/* Room Pic */}
                       <div>
-                        <label className="block text-xs font-semibold text-muted mb-1.5">Room Pic URL *</label>
-                        <div className="relative">
-                          <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                          <input
-                            {...register("roomPic")}
-                            placeholder="URL starting with https://"
-                            className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                          />
-                        </div>
+                        <label className="block text-xs font-semibold text-muted mb-2">Room Photo *</label>
+                        {watchRoomPic ? (
+                          <div className="relative h-40 border border-border rounded-2xl overflow-hidden bg-surface group">
+                            <img src={watchRoomPic} alt="Room Preview" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => setValue("roomPic", "", { shouldValidate: true })}
+                              className="absolute top-3 right-3 p-1.5 bg-black/60 hover:bg-black/85 text-white rounded-full transition-colors cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-border/80 hover:border-primary rounded-2xl bg-surface cursor-pointer transition-all hover:bg-primary/[0.02]">
+                            <ImageIcon className="w-7 h-7 text-muted mb-2" />
+                            <span className="text-[11px] font-bold text-ink">Upload Room Image</span>
+                            <span className="text-[9px] text-muted mt-1">PNG, JPG up to 2MB</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handleImageUpload(e, "roomPic")}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
                         {errors.roomPic && (
                           <p className="text-red-500 text-[10px] mt-1">{errors.roomPic.message}</p>
                         )}
                       </div>
 
+                      {/* Reception Pic */}
                       <div>
-                        <label className="block text-xs font-semibold text-muted mb-1.5">Reception Pic URL *</label>
-                        <div className="relative">
-                          <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                          <input
-                            {...register("receptionPic")}
-                            placeholder="URL starting with https://"
-                            className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                          />
-                        </div>
+                        <label className="block text-xs font-semibold text-muted mb-2">Reception Photo *</label>
+                        {watchReceptionPic ? (
+                          <div className="relative h-40 border border-border rounded-2xl overflow-hidden bg-surface group">
+                            <img src={watchReceptionPic} alt="Reception Preview" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => setValue("receptionPic", "", { shouldValidate: true })}
+                              className="absolute top-3 right-3 p-1.5 bg-black/60 hover:bg-black/85 text-white rounded-full transition-colors cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-border/80 hover:border-primary rounded-2xl bg-surface cursor-pointer transition-all hover:bg-primary/[0.02]">
+                            <ImageIcon className="w-7 h-7 text-muted mb-2" />
+                            <span className="text-[11px] font-bold text-ink">Upload Reception Image</span>
+                            <span className="text-[9px] text-muted mt-1">PNG, JPG up to 2MB</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handleImageUpload(e, "receptionPic")}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
                         {errors.receptionPic && (
                           <p className="text-red-500 text-[10px] mt-1">{errors.receptionPic.message}</p>
                         )}
                       </div>
 
+                      {/* Bathroom Pic */}
                       <div>
-                        <label className="block text-xs font-semibold text-muted mb-1.5">Bathroom Pic URL *</label>
-                        <div className="relative">
-                          <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                          <input
-                            {...register("bathroomPic")}
-                            placeholder="URL starting with https://"
-                            className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                          />
-                        </div>
+                        <label className="block text-xs font-semibold text-muted mb-2">Bathroom Photo *</label>
+                        {watchBathroomPic ? (
+                          <div className="relative h-40 border border-border rounded-2xl overflow-hidden bg-surface group">
+                            <img src={watchBathroomPic} alt="Bathroom Preview" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => setValue("bathroomPic", "", { shouldValidate: true })}
+                              className="absolute top-3 right-3 p-1.5 bg-black/60 hover:bg-black/85 text-white rounded-full transition-colors cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-border/80 hover:border-primary rounded-2xl bg-surface cursor-pointer transition-all hover:bg-primary/[0.02]">
+                            <ImageIcon className="w-7 h-7 text-muted mb-2" />
+                            <span className="text-[11px] font-bold text-ink">Upload Bathroom Image</span>
+                            <span className="text-[9px] text-muted mt-1">PNG, JPG up to 2MB</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handleImageUpload(e, "bathroomPic")}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
                         {errors.bathroomPic && (
                           <p className="text-red-500 text-[10px] mt-1">{errors.bathroomPic.message}</p>
                         )}
                       </div>
 
+                      {/* Interior & Exterior Pic */}
                       <div>
-                        <label className="block text-xs font-semibold text-muted mb-1.5">Interior & Exterior Pic URL *</label>
-                        <div className="relative">
-                          <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                          <input
-                            {...register("interiorExteriorPic")}
-                            placeholder="URL starting with https://"
-                            className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                          />
-                        </div>
+                        <label className="block text-xs font-semibold text-muted mb-2">Interior & Exterior Photo *</label>
+                        {watchInteriorExteriorPic ? (
+                          <div className="relative h-40 border border-border rounded-2xl overflow-hidden bg-surface group">
+                            <img src={watchInteriorExteriorPic} alt="Interior/Exterior Preview" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => setValue("interiorExteriorPic", "", { shouldValidate: true })}
+                              className="absolute top-3 right-3 p-1.5 bg-black/60 hover:bg-black/85 text-white rounded-full transition-colors cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-border/80 hover:border-primary rounded-2xl bg-surface cursor-pointer transition-all hover:bg-primary/[0.02]">
+                            <ImageIcon className="w-7 h-7 text-muted mb-2" />
+                            <span className="text-[11px] font-bold text-ink">Upload Interior/Exterior Image</span>
+                            <span className="text-[9px] text-muted mt-1">PNG, JPG up to 2MB</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handleImageUpload(e, "interiorExteriorPic")}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
                         {errors.interiorExteriorPic && (
                           <p className="text-red-500 text-[10px] mt-1">{errors.interiorExteriorPic.message}</p>
                         )}

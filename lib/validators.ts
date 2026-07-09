@@ -151,16 +151,16 @@ export const hotelRegistrationSchema = z.object({
     .min(10, "Specify full bank details (A/C, IFSC, Bank Name)"),
   roomPic: z
     .string()
-    .url("Enter a valid image URL for the room"),
+    .min(1, "Room photo is required"),
   receptionPic: z
     .string()
-    .url("Enter a valid image URL for the reception"),
+    .min(1, "Reception photo is required"),
   bathroomPic: z
     .string()
-    .url("Enter a valid image URL for the bathroom"),
+    .min(1, "Bathroom photo is required"),
   interiorExteriorPic: z
     .string()
-    .url("Enter a valid image URL for the interior/exterior"),
+    .min(1, "Interior/exterior photo is required"),
   location: z
     .string()
     .min(2, "Specify Google Maps URL or coordinates"),
