@@ -211,18 +211,34 @@ export interface ManpowerOption {
 export interface HotelRegistration {
   id: string;
   ownerName: string;
+  ownerContact: string;
+  propertyManagerName: string;
+  propertyManagerPhone: string;
   email: string;
   password: string;
   phone: string;
   hotelName: string;
+  gst: string;
+  hotelRegistrationNumber: string;
+  fireSafetyNoc: string;
+  cctvCamera: string;
+  bankDetails: string;
+  roomPic: string;
+  receptionPic: string;
+  bathroomPic: string;
+  interiorExteriorPic: string;
+  location: string;
   hotelAddress: string;
   city: string;
   state: string;
   pincode: string;
-  starRating: number;
-  totalRooms: number;
-  description: string;
-  amenities: string[];
   status: "Pending" | "Approved" | "Rejected";
   createdAt: string;
+
+  // Post-approval detail fields (configured from owner dashboard)
+  starRating?: number;
+  totalRooms?: number;
+  description?: string;
+  amenities?: string[];
+  roomTypes?: RoomType[];
 }

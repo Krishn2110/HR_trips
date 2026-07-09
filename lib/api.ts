@@ -1755,3 +1755,14 @@ export async function getHotelRegistrationByEmail(
   const regs = getLocalHotelRegistrations();
   return regs.find(r => r.email === email) || null;
 }
+
+export async function updateHotelRegistration(
+  reg: HotelRegistration
+): Promise<boolean> {
+  const regs = getLocalHotelRegistrations();
+  const index = regs.findIndex(r => r.id === reg.id);
+  if (index === -1) return false;
+  regs[index] = reg;
+  saveLocalHotelRegistrations(regs);
+  return true;
+}

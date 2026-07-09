@@ -109,19 +109,61 @@ export type AdminPackageFormData = z.infer<typeof adminPackageSchema>;
 export const hotelRegistrationSchema = z.object({
   ownerName: z
     .string()
-    .min(2, "Name must be at least 2 characters")
+    .min(2, "Owner name must be at least 2 characters")
     .max(100, "Name is too long"),
+  ownerContact: z
+    .string()
+    .min(10, "Enter a valid owner phone number")
+    .max(15, "Phone is too long"),
+  propertyManagerName: z
+    .string()
+    .min(2, "Property manager name must be at least 2 characters")
+    .max(100, "Manager name is too long"),
+  propertyManagerPhone: z
+    .string()
+    .min(10, "Enter a valid manager phone number")
+    .max(15, "Phone is too long"),
   email: z.string().email("Enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   phone: z
     .string()
-    .min(10, "Enter a valid phone number")
-    .max(15, "Enter a valid phone number")
-    .regex(/^[0-9+\-\s()]+$/, "Enter a valid phone number"),
+    .min(10, "Enter a valid hotel contact number")
+    .max(15, "Phone is too long"),
   hotelName: z
     .string()
     .min(2, "Hotel name must be at least 2 characters")
     .max(150, "Hotel name is too long"),
+  gst: z
+    .string()
+    .min(15, "GST must be exactly 15 characters")
+    .max(15, "GST must be exactly 15 characters"),
+  hotelRegistrationNumber: z
+    .string()
+    .min(2, "Hotel registration number is required"),
+  fireSafetyNoc: z
+    .string()
+    .min(2, "Fire safety NOC details are required"),
+  cctvCamera: z
+    .string()
+    .min(2, "CCTV configuration details are required"),
+  bankDetails: z
+    .string()
+    .min(10, "Specify full bank details (A/C, IFSC, Bank Name)"),
+  roomPic: z
+    .string()
+    .url("Enter a valid image URL for the room"),
+  receptionPic: z
+    .string()
+    .url("Enter a valid image URL for the reception"),
+  bathroomPic: z
+    .string()
+    .url("Enter a valid image URL for the bathroom"),
+  interiorExteriorPic: z
+    .string()
+    .url("Enter a valid image URL for the interior/exterior"),
+  location: z
+    .string()
+    .min(2, "Specify Google Maps URL or coordinates"),
   hotelAddress: z
     .string()
     .min(5, "Address must be at least 5 characters")
@@ -131,19 +173,7 @@ export const hotelRegistrationSchema = z.object({
   pincode: z
     .string()
     .min(4, "Enter a valid pincode")
-    .max(10, "Enter a valid pincode"),
-  starRating: z
-    .number({ error: "Select a star rating" })
-    .min(1, "Minimum 1 star")
-    .max(5, "Maximum 5 stars"),
-  totalRooms: z
-    .number({ error: "Enter total rooms" })
-    .min(1, "At least 1 room required")
-    .max(1000, "Maximum 1000 rooms"),
-  description: z
-    .string()
-    .min(20, "Description must be at least 20 characters")
-    .max(2000, "Description is too long"),
+    .max(10, "Pincode is too long"),
 });
 
 export type HotelRegistrationFormData = z.infer<typeof hotelRegistrationSchema>;

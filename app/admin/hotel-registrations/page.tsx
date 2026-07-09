@@ -16,12 +16,16 @@ import {
   Mail,
   Phone,
   MapPin,
-  Star,
-  DoorOpen,
   Building2,
   Eye,
   X,
+  ShieldCheck,
+  CreditCard,
+  Image as ImageIcon,
+  Map,
+  UserCheck
 } from "lucide-react";
+import Image from "next/image";
 
 export default function AdminHotelRegistrationsPage() {
   const [registrations, setRegistrations] = useState<HotelRegistration[]>([]);
@@ -95,10 +99,10 @@ export default function AdminHotelRegistrationsPage() {
   const filteredList = registrations.filter((r) => {
     const query = searchQuery.toLowerCase();
     const matchesSearch =
-      r.hotelName.toLowerCase().includes(query) ||
-      r.ownerName.toLowerCase().includes(query) ||
-      r.city.toLowerCase().includes(query) ||
-      r.email.toLowerCase().includes(query);
+      (r.hotelName || "").toLowerCase().includes(query) ||
+      (r.ownerName || "").toLowerCase().includes(query) ||
+      (r.city || "").toLowerCase().includes(query) ||
+      (r.email || "").toLowerCase().includes(query);
 
     const matchesStatus = statusFilter === "all" || r.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -110,10 +114,10 @@ export default function AdminHotelRegistrationsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-heading font-black text-2xl lg:text-3xl text-ink">
-            Hotel Registrations
+            Hotel Partner Applications
           </h1>
           <p className="text-muted text-xs mt-1">
-            Manage hotel owner registration requests and approvals.
+            Review documents, bank details, and approve registration accounts.
           </p>
         </div>
         <button
@@ -129,10 +133,10 @@ export default function AdminHotelRegistrationsPage() {
       {/* Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Total", value: total, color: "bg-surface text-ink border border-border/40" },
-          { label: "Pending", value: pending, color: "bg-amber-50/40 text-amber-800 border border-amber-100" },
-          { label: "Approved", value: approved, color: "bg-emerald-50/40 text-emerald-800 border border-emerald-100" },
-          { label: "Rejected", value: rejected, color: "bg-rose-50/40 text-rose-800 border border-rose-100" },
+          { label: "Total Applications", value: total, color: "bg-white text-ink border border-border/50" },
+          { label: "Pending Review", value: pending, color: "bg-amber-50/40 text-amber-800 border border-amber-200/40" },
+          { label: "Approved Partners", value: approved, color: "bg-emerald-50/40 text-emerald-800 border border-emerald-200/40" },
+          { label: "Rejected Applications", value: rejected, color: "bg-rose-50/40 text-rose-800 border border-rose-200/40" },
         ].map((s, i) => (
           <div key={i} className={`p-4 rounded-xl shadow-sm ${s.color} flex flex-col`}>
             <span className="text-[10px] uppercase font-bold tracking-wider opacity-85">{s.label}</span>
@@ -183,9 +187,9 @@ export default function AdminHotelRegistrationsPage() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-border/50 text-[10px] uppercase font-bold text-muted bg-surface/30">
-                  <th className="py-3.5 px-4">Hotel & Owner</th>
+                  <th className="py-3.5 px-4">Hotel & GST</th>
+                  <th className="py-3.5 px-4">Owner & Manager</th>
                   <th className="py-3.5 px-4">Location</th>
-                  <th className="py-3.5 px-4">Details</th>
                   <th className="py-3.5 px-4 text-center">Status</th>
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
@@ -197,8 +201,13 @@ export default function AdminHotelRegistrationsPage() {
                       <div className="font-semibold text-ink">{r.hotelName}</div>
                       <div className="text-[10px] text-muted space-y-0.5 mt-1">
                         <span className="flex items-center gap-1">
-                          <Building2 className="w-3 h-3 text-primary" /> {r.ownerName}
+                          <Building2 className="w-3.5 h-3.5 text-primary" /> GST: {r.gst}
                         </span>
+                      </div>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="font-semibold text-ink">{r.ownerName}</div>
+                      <div className="text-[10px] text-muted space-y-0.5 mt-1">
                         <span className="flex items-center gap-1">
                           <Mail className="w-3 h-3 text-primary" /> {r.email}
                         </span>
@@ -212,14 +221,6 @@ export default function AdminHotelRegistrationsPage() {
                         <MapPin className="w-3.5 h-3.5" /> {r.city}, {r.state}
                       </span>
                       <span className="text-[10px] block mt-0.5">{r.pincode}</span>
-                    </td>
-                    <td className="py-4 px-4 text-muted">
-                      <span className="flex items-center gap-1">
-                        <Star className="w-3.5 h-3.5 text-amber-500" /> {r.starRating} Star
-                      </span>
-                      <span className="flex items-center gap-1 mt-0.5">
-                        <DoorOpen className="w-3.5 h-3.5" /> {r.totalRooms} Rooms
-                      </span>
                     </td>
                     <td className="py-4 px-4 text-center">
                       <select
@@ -262,10 +263,13 @@ export default function AdminHotelRegistrationsPage() {
 
       {/* Detail Modal */}
       {viewingReg && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-2xl">
-            <div className="sticky top-0 bg-white border-b border-border/50 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-              <h3 className="font-heading font-bold text-ink text-lg">Registration Details</h3>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+            <div className="sticky top-0 bg-white border-b border-border/50 px-6 py-4 flex items-center justify-between z-10">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-primary" />
+                <h3 className="font-heading font-bold text-ink text-lg">Partner Registration Details</h3>
+              </div>
               <button
                 onClick={() => setViewingReg(null)}
                 className="p-1.5 hover:bg-surface rounded-lg cursor-pointer transition-colors"
@@ -273,91 +277,164 @@ export default function AdminHotelRegistrationsPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="px-6 py-5 space-y-4 text-sm">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-muted block">Owner Name</span>
-                  <span className="text-ink font-medium">{viewingReg.ownerName}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-muted block">Email</span>
-                  <span className="text-ink font-medium">{viewingReg.email}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-muted block">Phone</span>
-                  <span className="text-ink font-medium">{viewingReg.phone}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-muted block">Status</span>
-                  <span className={`inline-block px-2.5 py-0.5 text-[11px] font-semibold rounded-full border ${getStatusBadgeClass(viewingReg.status)}`}>
-                    {viewingReg.status}
-                  </span>
-                </div>
+            
+            <div className="p-6 space-y-6 text-xs flex-1 overflow-y-auto">
+              {/* Hotel Main Profile Info */}
+              <div>
+                <span className="text-[9px] uppercase font-bold text-primary tracking-wider">Hotel Trade Name</span>
+                <h4 className="font-heading font-black text-ink text-2xl mt-0.5">{viewingReg.hotelName}</h4>
+                <p className="text-muted text-xs mt-1.5 flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-primary shrink-0" /> {viewingReg.hotelAddress}, {viewingReg.city}, {viewingReg.state} - {viewingReg.pincode}
+                </p>
               </div>
+
               <hr className="border-border/30" />
-              <div>
-                <span className="text-[10px] uppercase font-bold text-muted block mb-1">Hotel Name</span>
-                <span className="text-ink font-semibold text-base">{viewingReg.hotelName}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-muted block">City</span>
-                  <span className="text-ink">{viewingReg.city}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-muted block">State</span>
-                  <span className="text-ink">{viewingReg.state}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-muted block">Pincode</span>
-                  <span className="text-ink">{viewingReg.pincode}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-muted block">Star Rating</span>
-                  <span className="text-ink flex items-center gap-1">
-                    {viewingReg.starRating} <Star className="w-3.5 h-3.5 text-amber-500" />
-                  </span>
-                </div>
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-muted block">Full Address</span>
-                <span className="text-ink">{viewingReg.hotelAddress}</span>
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-muted block">Total Rooms</span>
-                <span className="text-ink">{viewingReg.totalRooms}</span>
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-muted block">Description</span>
-                <p className="text-ink text-xs leading-relaxed">{viewingReg.description}</p>
-              </div>
-              {viewingReg.amenities.length > 0 && (
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-muted block mb-2">Amenities</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {viewingReg.amenities.map((a) => (
-                      <span
-                        key={a}
-                        className="px-2.5 py-1 bg-primary/5 text-primary text-[10px] font-semibold rounded-lg border border-primary/10"
-                      >
-                        {a}
-                      </span>
-                    ))}
+
+              {/* Legal & Operations Section */}
+              <div className="space-y-3.5">
+                <h5 className="font-heading font-bold text-ink text-xs flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-primary" /> Legal & Compliance Profile
+                </h5>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-surface p-4 border border-border/40 rounded-2xl">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-muted block">GST Number</span>
+                    <span className="text-ink font-semibold mt-0.5 block">{viewingReg.gst}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-muted block">Hotel Registration Number</span>
+                    <span className="text-ink font-semibold mt-0.5 block">{viewingReg.hotelRegistrationNumber}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-muted block">Fire Safety NOC Details</span>
+                    <span className="text-ink font-medium mt-0.5 block">{viewingReg.fireSafetyNoc}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-muted block">CCTV Configuration</span>
+                    <span className="text-ink font-medium mt-0.5 block">{viewingReg.cctvCamera}</span>
                   </div>
                 </div>
-              )}
-              <div>
-                <span className="text-[10px] uppercase font-bold text-muted block">Registered On</span>
-                <span className="text-ink text-xs">
-                  {new Date(viewingReg.createdAt).toLocaleDateString("en-IN", {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
               </div>
+
+              {/* Financial Section */}
+              <div className="space-y-3.5">
+                <h5 className="font-heading font-bold text-ink text-xs flex items-center gap-1.5">
+                  <CreditCard className="w-4 h-4 text-primary" /> Settlement Bank Details
+                </h5>
+                <div className="bg-surface p-4 border border-border/40 rounded-2xl whitespace-pre-line text-ink font-medium leading-relaxed">
+                  {viewingReg.bankDetails}
+                </div>
+              </div>
+
+              {/* People Details */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 border-t border-border/30 pt-6">
+                <div className="space-y-2">
+                  <h6 className="font-heading font-bold text-ink text-xs flex items-center gap-1">
+                    <UserCheck className="w-4 h-4 text-primary" /> Owner Details
+                  </h6>
+                  <div className="space-y-1 mt-1 text-muted">
+                    <div className="text-ink font-semibold">{viewingReg.ownerName}</div>
+                    <div>Phone: <span className="text-ink font-medium">{viewingReg.ownerContact}</span></div>
+                    <div>Contact Desk Phone: <span className="text-ink font-medium">{viewingReg.phone}</span></div>
+                    <div>Email: <span className="text-ink font-medium">{viewingReg.email}</span></div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h6 className="font-heading font-bold text-ink text-xs flex items-center gap-1">
+                    <UserCheck className="w-4 h-4 text-primary" /> Property Manager
+                  </h6>
+                  <div className="space-y-1 mt-1 text-muted">
+                    <div className="text-ink font-semibold">{viewingReg.propertyManagerName}</div>
+                    <div>Phone: <span className="text-ink font-medium">{viewingReg.propertyManagerPhone}</span></div>
+                    {viewingReg.location && (
+                      <div className="pt-2">
+                        <a 
+                          href={viewingReg.location} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/10 rounded-lg font-semibold transition-colors"
+                        >
+                          <Map className="w-3.5 h-3.5" /> View on Google Maps
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Photos Section */}
+              <div className="space-y-4 border-t border-border/30 pt-6">
+                <h5 className="font-heading font-bold text-ink text-xs flex items-center gap-1.5">
+                  <ImageIcon className="w-4 h-4 text-primary" /> Property Photo Previews
+                </h5>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { label: "Room", url: viewingReg.roomPic },
+                    { label: "Reception", url: viewingReg.receptionPic },
+                    { label: "Bathroom", url: viewingReg.bathroomPic },
+                    { label: "Interior/Exterior", url: viewingReg.interiorExteriorPic }
+                  ].map((img, i) => (
+                    <div key={i} className="border border-border/40 rounded-xl overflow-hidden bg-surface flex flex-col">
+                      <div className="relative h-24 bg-surface/30">
+                        {img.url ? (
+                          <img 
+                            src={img.url} 
+                            alt={img.label} 
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-muted">
+                            <ImageIcon className="w-5 h-5" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-2 border-t border-border/30 text-center font-semibold text-[10px] text-ink uppercase">
+                        {img.label}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Creation metadata */}
+              <div className="border-t border-border/30 pt-6 text-[10px] text-muted flex items-center justify-between">
+                <span>Application ID: #{viewingReg.id}</span>
+                <span>Submitted: {new Date(viewingReg.createdAt).toLocaleString("en-IN")}</span>
+              </div>
+            </div>
+            
+            {/* Quick Status actions */}
+            <div className="sticky bottom-0 bg-white border-t border-border/50 px-6 py-4 flex gap-3 rounded-b-3xl">
+              {viewingReg.status === "Pending" && (
+                <>
+                  <button
+                    onClick={() => {
+                      handleStatusChange(viewingReg.id, "Approved");
+                      setViewingReg(null);
+                    }}
+                    className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-md transition-colors"
+                  >
+                    Approve Application
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleStatusChange(viewingReg.id, "Rejected");
+                      setViewingReg(null);
+                    }}
+                    className="px-6 py-3 border border-rose-200 hover:bg-rose-50 text-rose-600 font-bold rounded-xl text-xs cursor-pointer transition-colors"
+                  >
+                    Decline
+                  </button>
+                </>
+              )}
+              {viewingReg.status !== "Pending" && (
+                <button
+                  onClick={() => setViewingReg(null)}
+                  className="w-full py-3 bg-surface hover:bg-border/20 text-ink font-semibold rounded-xl text-xs cursor-pointer transition-colors"
+                >
+                  Close Details
+                </button>
+              )}
             </div>
           </div>
         </div>
