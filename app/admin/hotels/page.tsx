@@ -1,29 +1,185 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getHotels, createOrUpdateHotel, deleteHotel } from "@/lib/api";
-import type { Hotel } from "@/lib/types";
-import { Plus, Edit2, Trash2, MapPin, Star, X, Image as ImageIcon, Save } from "lucide-react";
-import Image from "next/image";
-import BookingRequestsSection from "@/components/admin/BookingRequestsSection";
+import { 
+  Building2, MapPin, Star, Image as ImageIcon, 
+  Loader2, CheckCircle2, XCircle, Mail, Phone, Calendar, Users, IndianRupee, Eye, X, DoorOpen, ShieldCheck, UserCheck 
+} from "lucide-react";
+
+interface RoomType {
+  name: string;
+  description: string;
+  pricePerNight: number;
+  maxGuests: number;
+  count: number;
+  image: string;
+}
+
+interface Hotel {
+  id: string | number;
+  name: string;
+  ownerName: string;
+  email: string;
+  phone: string;
+  city: string;
+  state: string;
+  location: string;
+  starRating: number;
+  startingPrice: number;
+  image: string;
+  overview: string;
+  amenities: string[];
+  roomTypes: RoomType[];
+  roomPics: string[];
+  receptionPics: string[];
+  bathroomPics: string[];
+  interiorExteriorPics: string[];
+  createdAt: string;
+}
+
+interface HotelBooking {
+  id: string | number;
+  hotel_id: string | number;
+  hotel_name: string;
+  city: string;
+  hotel_owner_name: string;
+  hotel_owner_contact: string;
+  hotel_manager_name: string;
+  hotel_manager_phone: string;
+  room_category: string;
+  rooms_booked: number;
+  adults: number;
+  children: number;
+  checkin_date: string;
+  checkout_date: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  special_requests: string;
+  total_amount: number | string;
+  payment_status: string;
+  booking_status: "pending" | "confirmed" | "cancelled" | "checked_in" | "checked_out";
+  created_at: string;
+}
+
+// Helper to construct the full image URL safely
+const getImageUrl = (path: string) => {
+  if (!path) return "";
+  if (path.startsWith("http")) return path; 
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  if (path.startsWith('/api/')) return apiUrl.replace(/\/api\/?$/, "") + path;
+  return `${apiUrl.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
+};
 
 export default function AdminHotelsPage() {
+  const [activeTab, setActiveTab] = useState<"catalog" | "bookings">("catalog");
+  
+  // Hotel Catalog State
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [currentHotel, setCurrentHotel] = useState<Partial<Hotel> | null>(null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [activeTab, setActiveTab] = useState<"catalog" | "bookings">("catalog");
+  const [viewingHotel, setViewingHotel] = useState<Hotel | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
+  // Bookings State
+  const [bookings, setBookings] = useState<HotelBooking[]>([]);
+  const [isBookingsLoading, setIsBookingsLoading] = useState(false);
+  const [bookingsSearchQuery, setBookingsSearchQuery] = useState("");
+
+  // --- API: FETCH APPROVED HOTELS ---
   const loadHotels = async () => {
     setIsLoading(true);
     try {
-      const data = await getHotels();
-      setHotels(data);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/hotels/list_approved.php`, {
+        cache: "no-store"
+      });
+      const result = await response.json();
+      if (response.ok && result.status === "success") {
+        setHotels(result.data);
+      }
     } catch (e) {
-      console.error(e);
+      console.error("Failed to load hotels:", e);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // --- API: FETCH ALL HOTEL BOOKINGS (BULLETPROOF) ---
+  const loadBookings = async () => {
+    setIsBookingsLoading(true);
+    try {
+      // FIX: Changed folder to /hotel-bookings/
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/hotel-bookings/list.php`, {
+        cache: "no-store"
+      });
+      const rawText = await response.text();
+      let result;
+      try {
+        result = JSON.parse(rawText);
+      } catch (e) {
+        console.error("API returned invalid JSON:", rawText);
+        setBookings([]);
+        return;
+      }
+      
+      if (response.ok && result.status === "success") {
+        setBookings(Array.isArray(result.data) ? result.data : []);
+      } else {
+        setBookings([]);
+      }
+    } catch (e) {
+      console.error("Error loading hotel bookings:", e);
+    } finally {
+      setIsBookingsLoading(false);
+    }
+  };
+
+  // --- API: UPDATE BOOKING STATUS (Check-in/Check-out) ---
+  const updateBookingStatus = async (id: string | number, newStatus: string) => {
+    if (!confirm(`Mark this booking as ${newStatus.replace('_', ' ')}?`)) return;
+    
+    try {
+      // FIX: Changed folder to /hotel-bookings/
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/hotel-bookings/update_status.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: newStatus })
+      });
+      const result = await response.json();
+
+      if (response.ok && result.status === "success") {
+        setBookings(prev => prev.map(b => b.id === id ? { ...b, booking_status: newStatus as any } : b));
+      } else {
+        alert(result.message || "Failed to update booking status");
+      }
+    } catch (e) {
+      alert("Error updating status.");
+    }
+  };
+
+  // --- API: CANCEL & REFUND BOOKING ---
+  const cancelAndRefundBooking = async (booking: HotelBooking) => {
+    if (!confirm(`Are you sure you want to cancel this booking for ${booking.customer_name}? If payment was successful, a refund of ₹${booking.total_amount} will be initiated.`)) return;
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/hotel-bookings/cancel.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: booking.id })
+      });
+      const result = await response.json();
+
+      if (response.ok && result.status === "success") {
+        setBookings(prev => prev.map(b => b.id === booking.id ? { 
+          ...b, 
+          booking_status: "cancelled", 
+          payment_status: b.payment_status === "successful" ? "refunded" : b.payment_status 
+        } : b));
+        alert("Booking cancelled successfully! Email sent to the customer.");
+      } else {
+        alert(result.message || "Failed to cancel and refund booking");
+      }
+    } catch (e) {
+      alert("Error contacting the cancellation API.");
     }
   };
 
@@ -31,105 +187,41 @@ export default function AdminHotelsPage() {
     loadHotels();
   }, []);
 
-  const openAddModal = () => {
-    setCurrentHotel({
-      name: "",
-      city: "",
-      location: "",
-      starRating: 3,
-      startingPrice: 1500,
-      image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1920&q=90",
-      overview: "",
-      cancellationPolicy: "Free cancellation up to 24 hours before check-in.",
-      amenities: ["Free WiFi", "AC Rooms", "Room Service", "Parking"],
-      featured: false,
-      roomTypes: [
-        {
-          name: "Standard Room",
-          description: "Well-furnished standard room.",
-          pricePerNight: 1500,
-          maxGuests: 2,
-          image: "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=1920&q=90",
-        }
-      ]
-    });
-    setErrors({});
-    setModalOpen(true);
-  };
-
-  const openEditModal = (hotel: Hotel) => {
-    setCurrentHotel(hotel);
-    setErrors({});
-    setModalOpen(true);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this hotel?")) return;
-    try {
-      const success = await deleteHotel(id);
-      if (success) {
-        setHotels(prev => prev.filter(h => h.id !== id));
-      }
-    } catch (e) {
-      alert("Failed to delete hotel");
+  useEffect(() => {
+    if (activeTab === "bookings") {
+      loadBookings();
     }
-  };
+  }, [activeTab]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    let targetValue: any = value;
-    if (type === "checkbox") {
-      targetValue = (e.target as HTMLInputElement).checked;
-    } else if (name === "startingPrice" || name === "starRating") {
-      targetValue = value ? Number(value) : 0;
-    }
-    setCurrentHotel(prev => prev ? { ...prev, [name]: targetValue } : null);
-  };
+  // Filter Bookings
+  const filteredBookings = bookings.filter((booking) => {
+    const q = bookingsSearchQuery.toLowerCase();
+    return (
+      (booking.customer_name || "").toLowerCase().includes(q) ||
+      (booking.customer_email || "").toLowerCase().includes(q) ||
+      (booking.hotel_name || "").toLowerCase().includes(q) ||
+      (booking.hotel_owner_name || "").toLowerCase().includes(q) ||
+      (booking.hotel_manager_name || "").toLowerCase().includes(q) ||
+      String(booking.id).includes(q)
+    );
+  });
 
-  const validateForm = () => {
-    const errs: Record<string, string> = {};
-    if (!currentHotel?.name?.trim()) errs.name = "Hotel name is required";
-    if (!currentHotel?.city?.trim()) errs.city = "City is required";
-    if (!currentHotel?.location?.trim()) errs.location = "Location address is required";
-    if (!currentHotel?.startingPrice || currentHotel.startingPrice <= 0) errs.startingPrice = "Valid starting price is required";
-    if (!currentHotel?.overview?.trim() || currentHotel.overview.length < 20) errs.overview = "Description must be at least 20 chars";
-    
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-    try {
-      const saved = await createOrUpdateHotel(currentHotel as any);
-      if (saved) {
-        loadHotels();
-        setModalOpen(false);
-      }
-    } catch (e) {
-      alert("Error saving hotel");
-    }
-  };
+  const totalRevenue = filteredBookings
+    .filter((b) => b.booking_status === "confirmed" || b.booking_status === "checked_in" || b.booking_status === "checked_out")
+    .reduce((sum, b) => sum + (Number(b.total_amount) || 0), 0);
 
   return (
     <div className="space-y-8">
+      {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="font-heading font-black text-2xl lg:text-3xl text-ink">
-            Manage Hotels
+            Hotel Management
           </h1>
           <p className="text-muted text-xs mt-1">
-            Create, modify, and delete active hotels listed on your public website.
+            View active approved hotels and manage guest room bookings.
           </p>
         </div>
-        <button
-          onClick={openAddModal}
-          className="inline-flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl text-xs font-semibold hover:shadow-lg active:scale-[0.98] transition-all cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          Add New Hotel
-        </button>
       </div>
 
       {/* Tabs */}
@@ -142,7 +234,7 @@ export default function AdminHotelsPage() {
               : "border-transparent text-muted hover:text-ink"
           }`}
         >
-          Catalog Management
+          Approved Hotels Inventory
         </button>
         <button
           onClick={() => setActiveTab("bookings")}
@@ -152,27 +244,192 @@ export default function AdminHotelsPage() {
               : "border-transparent text-muted hover:text-ink"
           }`}
         >
-          Booking Requests
+          Guest Bookings
         </button>
       </div>
 
       {activeTab === "bookings" ? (
-        <BookingRequestsSection filterType="hotels" />
+        <div className="space-y-6">
+          {/* Revenue Summary Card */}
+          {!isBookingsLoading && bookings.length > 0 && (
+             <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+               <div>
+                 <h3 className="text-primary-dark font-bold text-sm">Total Confirmed Revenue</h3>
+                 <p className="text-muted text-xs mt-1">From all successful hotel bookings.</p>
+               </div>
+               <div className="text-3xl font-heading font-black text-primary flex items-center">
+                 <IndianRupee className="w-6 h-6 mr-1" />
+                 {totalRevenue.toLocaleString("en-IN")}
+               </div>
+             </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex-1 max-w-md">
+              <input
+                type="text"
+                placeholder="Search by guest name, email, or hotel name..."
+                value={bookingsSearchQuery}
+                onChange={(e) => setBookingsSearchQuery(e.target.value)}
+                className="w-full px-4 py-2.5 bg-white border border-border rounded-xl text-xs text-ink focus:border-primary outline-none shadow-sm transition-all"
+              />
+            </div>
+          </div>
+
+          {isBookingsLoading ? (
+            <div className="py-20 flex flex-col items-center justify-center text-center">
+              <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
+              <p className="text-muted text-xs">Loading hotel bookings...</p>
+            </div>
+          ) : bookings.length === 0 ? (
+            <div className="py-20 text-center border-2 border-dashed border-border rounded-3xl bg-white p-8">
+              <Calendar className="w-12 h-12 text-muted/60 mx-auto mb-4" />
+              <h3 className="font-heading font-bold text-ink text-lg">No bookings yet</h3>
+              <p className="text-muted text-xs">When customers book hotel rooms, they will appear here.</p>
+            </div>
+          ) : filteredBookings.length === 0 ? (
+            <div className="py-16 text-center border border-dashed border-border rounded-2xl bg-white p-8 text-muted text-xs">
+              No matching bookings found.
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-border/50 shadow-sm overflow-hidden overflow-x-auto">
+              <table className="w-full text-left text-sm whitespace-nowrap">
+                <thead className="bg-surface border-b border-border/50 text-muted uppercase text-[10px] font-bold tracking-wider">
+                  <tr>
+                    <th className="px-6 py-4">ID & Date</th>
+                    <th className="px-6 py-4">Guest Details</th>
+                    <th className="px-6 py-4">Hotel Contacts</th>
+                    <th className="px-6 py-4">Room & Stay</th>
+                    <th className="px-6 py-4">Amount</th>
+                    <th className="px-6 py-4 text-center">Status</th>
+                    <th className="px-6 py-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/30">
+                  {filteredBookings.map((booking) => (
+                    <tr key={booking.id} className="hover:bg-surface/30 transition-colors">
+                      <td className="px-6 py-4">
+                        <span className="font-semibold text-ink block">#{booking.id}</span>
+                        <span className="text-[10px] text-muted">
+                          {new Date(booking.created_at).toLocaleDateString()}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="font-semibold text-ink block">{booking.customer_name}</span>
+                        <span className="text-xs text-muted flex items-center gap-1 mt-1">
+                          <Mail className="w-3 h-3"/> {booking.customer_email}
+                        </span>
+                        <span className="text-xs text-muted flex items-center gap-1 mt-0.5">
+                          <Phone className="w-3 h-3"/> {booking.customer_phone}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="font-semibold text-primary block">{booking.hotel_name || "Unknown Hotel"}</span>
+                        <span className="text-[10px] text-muted flex items-center gap-1 mt-1">
+                          <UserCheck className="w-3 h-3 shrink-0" />
+                          Owner: {booking.hotel_owner_name || "N/A"} ({booking.hotel_owner_contact || "N/A"})
+                        </span>
+                        <span className="text-[10px] text-muted flex items-center gap-1 mt-0.5">
+                          <UserCheck className="w-3 h-3 shrink-0" />
+                          Mgr: {booking.hotel_manager_name || "N/A"} ({booking.hotel_manager_phone || "N/A"})
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="font-semibold text-ink block">
+                          {booking.rooms_booked}x {booking.room_category}
+                        </span>
+                        <span className="text-xs text-muted flex items-center gap-1 mt-1">
+                          <Calendar className="w-3.5 h-3.5 text-primary"/> 
+                          {booking.checkin_date} to {booking.checkout_date}
+                        </span>
+                        <span className="text-[10px] text-muted block mt-0.5">
+                          {booking.adults} Adults {booking.children > 0 && `| ${booking.children} Kids`}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="font-bold text-ink block">
+                          ₹{Number(booking.total_amount || 0).toLocaleString("en-IN")}
+                        </span>
+                        <span className={`text-[9px] uppercase font-bold tracking-wider mt-1 block ${booking.payment_status === 'successful' ? 'text-green-600' : booking.payment_status === 'refunded' ? 'text-gray-500' : 'text-amber-600'}`}>
+                          {booking.payment_status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full ${
+                          booking.booking_status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                          booking.booking_status === 'checked_in' ? 'bg-blue-100 text-blue-700' :
+                          booking.booking_status === 'checked_out' ? 'bg-gray-100 text-gray-700' :
+                          booking.booking_status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                          'bg-amber-100 text-amber-700'
+                        }`}>
+                          {booking.booking_status.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {booking.booking_status === 'pending' && (
+                          <div className="flex justify-end gap-2">
+                            <button 
+                              onClick={() => updateBookingStatus(booking.id, 'confirmed')} 
+                              className="p-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg transition-colors cursor-pointer" 
+                              title="Confirm Booking"
+                            >
+                              <CheckCircle2 className="w-4 h-4"/>
+                            </button>
+                            <button 
+                              onClick={() => updateBookingStatus(booking.id, 'cancelled')} 
+                              className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors cursor-pointer" 
+                              title="Cancel Booking"
+                            >
+                              <XCircle className="w-4 h-4"/>
+                            </button>
+                          </div>
+                        )}
+                        {booking.booking_status === 'confirmed' && (
+                          <div className="flex flex-col items-end gap-2">
+                            <button 
+                              onClick={() => updateBookingStatus(booking.id, 'checked_in')} 
+                              className="px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 font-semibold text-[10px] uppercase tracking-wider rounded-lg transition-colors cursor-pointer w-full text-center" 
+                            >
+                              Check-In
+                            </button>
+                            <button 
+                              onClick={() => cancelAndRefundBooking(booking)} 
+                              className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 font-semibold text-[10px] uppercase tracking-wider rounded-lg transition-colors cursor-pointer w-full text-center" 
+                            >
+                              Cancel & Refund
+                            </button>
+                          </div>
+                        )}
+                        {booking.booking_status === 'checked_in' && (
+                          <button 
+                            onClick={() => updateBookingStatus(booking.id, 'checked_out')} 
+                            className="px-3 py-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 font-semibold text-[10px] uppercase tracking-wider rounded-lg transition-colors cursor-pointer" 
+                          >
+                            Check-Out
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       ) : (
         <>
           {isLoading ? (
             <div className="py-20 flex flex-col items-center justify-center text-center">
               <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin mb-3" />
-              <p className="text-muted text-xs">Loading hotels...</p>
+              <p className="text-muted text-xs">Loading approved hotels...</p>
             </div>
           ) : hotels.length === 0 ? (
             <div className="py-24 text-center border-2 border-dashed border-border rounded-3xl bg-white p-8">
-              <ImageIcon className="w-12 h-12 text-muted/60 mx-auto mb-4" />
-              <h3 className="font-heading font-bold text-ink text-lg">No hotels found</h3>
-              <p className="text-muted text-xs max-w-xs mx-auto mt-1 mb-6">Create your first hotel to display to customers.</p>
-              <button onClick={openAddModal} className="px-5 py-3 bg-primary text-white text-xs font-semibold rounded-xl cursor-pointer">
-                Create Hotel
-              </button>
+              <Building2 className="w-12 h-12 text-muted/60 mx-auto mb-4" />
+              <h3 className="font-heading font-bold text-ink text-lg">No active hotels</h3>
+              <p className="text-muted text-xs max-w-xs mx-auto mt-1 mb-6">
+                When a hotel partner registers and you approve them, they will appear here.
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -180,12 +437,9 @@ export default function AdminHotelsPage() {
                 <div key={hotel.id} className="bg-white rounded-2xl border border-border/50 shadow-sm overflow-hidden flex flex-col group hover:shadow-md transition-shadow">
                   <div className="relative h-48 bg-surface">
                     {hotel.image ? (
-                      <Image src={hotel.image} alt={hotel.name} fill className="object-cover" sizes="30vw" />
+                      <img src={getImageUrl(hotel.image)} alt={hotel.name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center text-muted"><ImageIcon className="w-8 h-8" /></div>
-                    )}
-                    {hotel.featured && (
-                      <span className="absolute top-3 left-3 px-2.5 py-1 bg-primary text-white text-[10px] font-bold rounded-full uppercase">Featured</span>
                     )}
                     <div className="absolute bottom-3 right-3 px-2.5 py-1 bg-black/60 text-white text-[10px] font-bold rounded-full flex items-center gap-1">
                       <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
@@ -194,19 +448,29 @@ export default function AdminHotelsPage() {
                   </div>
 
                   <div className="p-5 flex-1 flex flex-col">
-                    <span className="text-muted text-[10px] uppercase font-bold tracking-wider mb-1 block">{hotel.city}</span>
+                    <span className="text-muted text-[10px] uppercase font-bold tracking-wider mb-1 block">{hotel.city}, {hotel.state}</span>
                     <h3 className="font-heading font-semibold text-ink text-base mb-2 group-hover:text-primary transition-colors">{hotel.name}</h3>
-                    <span className="text-muted text-xs flex items-center gap-1 mb-4"><MapPin className="w-3.5 h-3.5 shrink-0" /> {hotel.location}</span>
+                    
+                    <span className="text-muted text-xs flex items-center gap-1 mb-2">
+                      <MapPin className="w-3.5 h-3.5 shrink-0 text-primary" /> {hotel.location}
+                    </span>
+                    <span className="text-muted text-xs flex items-center gap-1 mb-4">
+                      <Phone className="w-3.5 h-3.5 shrink-0 text-primary" /> {hotel.phone}
+                    </span>
 
                     <div className="flex items-center justify-between mt-auto pt-4 border-t border-border/40">
                       <div>
-                        <span className="text-[10px] text-muted block">Starting Price</span>
-                        <span className="font-heading font-black text-lg text-primary">₹{hotel.startingPrice.toLocaleString("en-IN")}/night</span>
+                        <span className="text-[10px] text-muted block">Starts At</span>
+                        <span className="font-heading font-black text-lg text-primary">₹{hotel.startingPrice.toLocaleString("en-IN")}</span>
                       </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => openEditModal(hotel)} className="p-2 bg-surface hover:bg-primary-light text-ink hover:text-primary rounded-xl border border-border/50 cursor-pointer transition-colors"><Edit2 className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => handleDelete(hotel.id)} className="p-2 bg-surface hover:bg-red-50 text-ink hover:text-red-500 rounded-xl border border-border/50 cursor-pointer transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                      </div>
+                      
+                      <button 
+                        onClick={() => setViewingHotel(hotel)} 
+                        className="p-2 bg-surface hover:bg-blue-50 text-muted hover:text-blue-600 rounded-xl border border-border/50 transition-all cursor-pointer"
+                        title="View Full Details"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -216,82 +480,150 @@ export default function AdminHotelsPage() {
         </>
       )}
 
-      {modalOpen && currentHotel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl border border-border max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+      {/* --- HOTEL DETAIL MODAL --- */}
+      {viewingHotel && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl border border-border max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
             <div className="p-6 border-b border-border/50 flex items-center justify-between sticky top-0 bg-white z-10">
-              <h2 className="font-heading font-bold text-lg text-ink">{currentHotel.id ? "Edit Hotel Details" : "Add New Hotel"}</h2>
-              <button onClick={() => setModalOpen(false)} className="p-1.5 hover:bg-surface rounded-lg text-muted cursor-pointer"><X className="w-5 h-5" /></button>
+              <div>
+                <h2 className="font-heading font-bold text-xl text-ink">{viewingHotel.name}</h2>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-muted flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-primary" /> {viewingHotel.city}, {viewingHotel.state}
+                  </span>
+                  <span className="w-1 h-1 rounded-full bg-border"></span>
+                  <span className="text-xs font-bold text-amber-500 flex items-center gap-0.5">
+                    {viewingHotel.starRating} <Star className="w-3 h-3 fill-amber-500" />
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingHotel(null)}
+                className="p-2 hover:bg-surface rounded-xl text-muted transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-5 flex-1 overflow-y-auto">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] uppercase tracking-wider font-semibold text-muted mb-1.5">Hotel Name *</label>
-                  <input type="text" name="name" required value={currentHotel.name} onChange={handleInputChange} className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none" />
-                  {errors.name && <p className="text-red-500 text-[10px] mt-1">{errors.name}</p>}
-                </div>
-
+            <div className="p-6 space-y-8 flex-1 overflow-y-auto">
+              
+              {/* Profile & Amenities */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-[11px] uppercase tracking-wider font-semibold text-muted mb-1.5">City *</label>
-                  <input type="text" name="city" required value={currentHotel.city} onChange={handleInputChange} className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none" />
-                  {errors.city && <p className="text-red-500 text-[10px] mt-1">{errors.city}</p>}
+                  <h4 className="text-xs font-bold uppercase text-muted tracking-wider mb-2">Overview</h4>
+                  <p className="text-sm text-ink leading-relaxed bg-surface/50 p-4 rounded-xl border border-border/50">
+                    {viewingHotel.overview || "No description provided."}
+                  </p>
                 </div>
-
                 <div>
-                  <label className="block text-[11px] uppercase tracking-wider font-semibold text-muted mb-1.5">Star Rating</label>
-                  <select name="starRating" value={currentHotel.starRating} onChange={handleInputChange} className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none cursor-pointer">
-                    <option value={2}>2 Star</option>
-                    <option value={3}>3 Star</option>
-                    <option value={4}>4 Star</option>
-                    <option value={5}>5 Star</option>
-                  </select>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] uppercase tracking-wider font-semibold text-muted mb-1.5">Location Address *</label>
-                  <input type="text" name="location" required value={currentHotel.location} onChange={handleInputChange} className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none" />
-                  {errors.location && <p className="text-red-500 text-[10px] mt-1">{errors.location}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-[11px] uppercase tracking-wider font-semibold text-muted mb-1.5">Starting Price (₹) *</label>
-                  <input type="number" name="startingPrice" required value={currentHotel.startingPrice || ""} onChange={handleInputChange} className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none" />
-                  {errors.startingPrice && <p className="text-red-500 text-[10px] mt-1">{errors.startingPrice}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-[11px] uppercase tracking-wider font-semibold text-muted mb-1.5">Main Image URL</label>
-                  <input type="text" name="image" value={currentHotel.image} onChange={handleInputChange} className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none" />
-                </div>
-
-                <div className="sm:col-span-2 flex items-center gap-2 py-1">
-                  <input type="checkbox" id="featured" name="featured" checked={currentHotel.featured || false} onChange={handleInputChange} className="w-4 h-4 accent-primary cursor-pointer" />
-                  <label htmlFor="featured" className="text-xs font-semibold text-ink cursor-pointer">Mark as featured hotel</label>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] uppercase tracking-wider font-semibold text-muted mb-1.5">Cancellation Policy</label>
-                  <input type="text" name="cancellationPolicy" value={currentHotel.cancellationPolicy} onChange={handleInputChange} className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none" />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] uppercase tracking-wider font-semibold text-muted mb-1.5">Overview Description *</label>
-                  <textarea name="overview" rows={3} required value={currentHotel.overview} onChange={handleInputChange} className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none resize-none" />
-                  {errors.overview && <p className="text-red-500 text-[10px] mt-1">{errors.overview}</p>}
+                  <h4 className="text-xs font-bold uppercase text-muted tracking-wider mb-2">Amenities</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {viewingHotel.amenities?.length > 0 ? viewingHotel.amenities.map((a, i) => (
+                      <span key={i} className="px-2.5 py-1 bg-surface border border-border/50 rounded-lg text-[11px] font-medium text-ink">
+                        {a}
+                      </span>
+                    )) : <span className="text-xs text-muted">No amenities listed.</span>}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 pt-6 border-t border-border/50 sticky bottom-0 bg-white z-10">
-                <button type="submit" className="flex-1 py-3.5 bg-gradient-to-r from-primary to-primary-dark text-white font-semibold rounded-xl flex items-center justify-center gap-2 hover:shadow-lg active:scale-[0.98] transition-all cursor-pointer text-xs">
-                  <Save className="w-4 h-4" /> Save Hotel
-                </button>
-                <button type="button" onClick={() => setModalOpen(false)} className="px-6 py-3.5 border border-border text-ink font-semibold rounded-xl hover:bg-surface cursor-pointer transition-colors text-xs">
-                  Cancel
-                </button>
+              {/* Room Categories List */}
+              <div>
+                <h4 className="text-xs font-bold uppercase text-muted tracking-wider mb-3 flex items-center gap-1.5">
+                  <DoorOpen className="w-4 h-4 text-primary" /> Room Categories & Inventory
+                </h4>
+                {viewingHotel.roomTypes?.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {viewingHotel.roomTypes.map((room, idx) => (
+                      <div key={idx} className="border border-border/50 rounded-xl overflow-hidden bg-white shadow-sm flex flex-col">
+                        <div className="relative h-32 bg-surface">
+                          {room.image ? (
+                            <img src={getImageUrl(room.image)} alt={room.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-muted"><ImageIcon className="w-6 h-6"/></div>
+                          )}
+                        </div>
+                        <div className="p-4 flex-1 flex flex-col justify-between">
+                          <div>
+                            <h5 className="font-heading font-bold text-ink text-sm">{room.name}</h5>
+                            <p className="text-[10px] text-muted line-clamp-2 mt-1">{room.description}</p>
+                          </div>
+                          <div className="mt-3 pt-3 border-t border-border/40 grid grid-cols-2 gap-2 text-[11px]">
+                            <div>
+                              <span className="text-muted block">Rooms</span>
+                              <span className="font-bold text-ink">{room.count}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted block">Price/Night</span>
+                              <span className="font-bold text-primary">₹{room.pricePerNight}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted italic bg-surface p-4 rounded-xl border border-border/50">No room categories have been configured by the owner yet.</p>
+                )}
               </div>
-            </form>
+
+              {/* Full Photo Gallery */}
+              <div>
+                <h4 className="text-xs font-bold uppercase text-muted tracking-wider mb-3 flex items-center gap-1.5">
+                  <ImageIcon className="w-4 h-4 text-primary" /> Complete Photo Gallery
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                  {[
+                    ...(viewingHotel.roomPics || []).map(url => ({ label: "Room", url })),
+                    ...(viewingHotel.receptionPics || []).map(url => ({ label: "Reception", url })),
+                    ...(viewingHotel.bathroomPics || []).map(url => ({ label: "Bathroom", url })),
+                    ...(viewingHotel.interiorExteriorPics || []).map(url => ({ label: "Exterior", url }))
+                  ].map((img, i) => (
+                    <div 
+                      key={i} 
+                      className="relative h-24 border border-border/40 rounded-xl overflow-hidden bg-surface group cursor-pointer"
+                      onClick={() => setLightboxImage(img.url)}
+                    >
+                      {img.url ? (
+                        <img src={getImageUrl(img.url)} alt={img.label} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-muted"><ImageIcon className="w-5 h-5" /></div>
+                      )}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                        <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-1 text-center font-semibold text-[9px] text-white uppercase tracking-wider backdrop-blur-sm">
+                        {img.label}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
           </div>
+        </div>
+      )}
+
+      {/* --- Image Lightbox --- */}
+      {lightboxImage && (
+        <div 
+          className="fixed inset-0 z-[70] bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm"
+          onClick={() => setLightboxImage(null)}
+        >
+          <button 
+            className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer"
+            onClick={() => setLightboxImage(null)}
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img 
+            src={getImageUrl(lightboxImage)} 
+            alt="Fullscreen Preview" 
+            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()} 
+          />
         </div>
       )}
     </div>

@@ -2,12 +2,6 @@
 
 import { useEffect, useState } from "react";
 import {
-  getHotelRegistrations,
-  updateHotelRegistrationStatus,
-  deleteHotelRegistration,
-} from "@/lib/api";
-import type { HotelRegistration } from "@/lib/types";
-import {
   Clock,
   CheckCircle,
   XCircle,
@@ -25,22 +19,79 @@ import {
   Map,
   UserCheck
 } from "lucide-react";
-import Image from "next/image";
+
+export interface HotelRegistration {
+  id: string;
+  ownerName: string;
+  ownerContact: string;
+  propertyManagerName: string;
+  propertyManagerPhone: string;
+  email: string;
+  hotelName: string;
+  gst: string;
+  hotelRegistrationNumber: string;
+  fireSafetyNoc: string;
+  cctvCamera: string;
+  bankDetails: string;
+  location: string;
+  hotelAddress: string;
+  city: string;
+  state: string;
+  pincode: string;
+  roomPics: string[];
+  receptionPics: string[];
+  bathroomPics: string[];
+  interiorExteriorPics: string[];
+  status: "Pending" | "Approved" | "Rejected";
+  createdAt: string;
+}
+
+// Helper to construct the full image URL from your backend
+const getImageUrl = (path: string) => {
+  if (!path) return "";
+  if (path.startsWith("http")) return path; // Already an absolute URL
+  
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  
+  // If the path saved in DB starts with '/api/' and your NEXT_PUBLIC_API_URL ends with '/api'
+  // We clean it up so it doesn't output '.../api/api/uploads/...'
+  if (path.startsWith('/api/')) {
+    return apiUrl.replace(/\/api\/?$/, "") + path;
+  }
+  
+  return `${apiUrl.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
+};
 
 export default function AdminHotelRegistrationsPage() {
   const [registrations, setRegistrations] = useState<HotelRegistration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  
+  // State for the Details Modal
   const [viewingReg, setViewingReg] = useState<HotelRegistration | null>(null);
+  
+  // State for the Fullscreen Image Lightbox
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
+  // --- API: FETCH REGISTRATIONS ---
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const data = await getHotelRegistrations();
-      setRegistrations(data);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/hotels/list.php`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store"
+      });
+      const result = await response.json();
+      
+      if (response.ok && result.status === "success") {
+        setRegistrations(result.data);
+      } else {
+        console.error("Failed to load hotel registrations", result.message);
+      }
     } catch (e) {
-      console.error("Failed to load hotel registrations", e);
+      console.error("Network error while loading hotel registrations", e);
     } finally {
       setIsLoading(false);
     }
@@ -50,31 +101,58 @@ export default function AdminHotelRegistrationsPage() {
     loadData();
   }, []);
 
+  // --- API: UPDATE STATUS ---
   const handleStatusChange = async (
     id: string,
     newStatus: "Pending" | "Approved" | "Rejected"
   ) => {
+    if (!confirm(`Are you sure you want to mark this as ${newStatus}?`)) return;
+
     try {
-      const success = await updateHotelRegistrationStatus(id, newStatus);
-      if (success) {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/hotels/update_status.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: newStatus })
+      });
+      
+      const result = await response.json();
+
+      if (response.ok && result.status === "success") {
         setRegistrations((prev) =>
           prev.map((r) => (r.id === id ? { ...r, status: newStatus } : r))
         );
+        // Update modal state if it's currently open
+        if (viewingReg && viewingReg.id === id) {
+          setViewingReg({ ...viewingReg, status: newStatus });
+        }
+      } else {
+        alert(result.message || "Failed to update registration status");
       }
     } catch {
-      alert("Failed to update registration status");
+      alert("Network Error: Failed to update registration status");
     }
   };
 
+  // --- API: DELETE REGISTRATION ---
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this hotel registration?")) return;
+    
     try {
-      const success = await deleteHotelRegistration(id);
-      if (success) {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/hotels/delete.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id })
+      });
+      
+      const result = await response.json();
+
+      if (response.ok && result.status === "success") {
         setRegistrations((prev) => prev.filter((r) => r.id !== id));
+      } else {
+        alert(result.message || "Failed to delete registration");
       }
     } catch {
-      alert("Failed to delete registration");
+      alert("Network Error: Failed to delete registration");
     }
   };
 
@@ -196,7 +274,11 @@ export default function AdminHotelRegistrationsPage() {
               </thead>
               <tbody className="divide-y divide-border/40 text-xs">
                 {filteredList.map((r) => (
-                  <tr key={r.id} className="hover:bg-surface/20 transition-colors">
+                  <tr 
+                    key={r.id} 
+                    onClick={() => setViewingReg(r)}
+                    className="hover:bg-surface/40 transition-colors cursor-pointer"
+                  >
                     <td className="py-4 px-4">
                       <div className="font-semibold text-ink">{r.hotelName}</div>
                       <div className="text-[10px] text-muted space-y-0.5 mt-1">
@@ -212,7 +294,7 @@ export default function AdminHotelRegistrationsPage() {
                           <Mail className="w-3 h-3 text-primary" /> {r.email}
                         </span>
                         <span className="flex items-center gap-1">
-                          <Phone className="w-3 h-3 text-primary" /> {r.phone}
+                          <Phone className="w-3 h-3 text-primary" /> {r.ownerContact}
                         </span>
                       </div>
                     </td>
@@ -222,12 +304,10 @@ export default function AdminHotelRegistrationsPage() {
                       </span>
                       <span className="text-[10px] block mt-0.5">{r.pincode}</span>
                     </td>
-                    <td className="py-4 px-4 text-center">
+                    <td className="py-4 px-4 text-center" onClick={(e) => e.stopPropagation()}>
                       <select
                         value={r.status}
-                        onChange={(e) =>
-                          handleStatusChange(r.id, e.target.value as "Pending" | "Approved" | "Rejected")
-                        }
+                        onChange={(e) => handleStatusChange(r.id, e.target.value as "Pending" | "Approved" | "Rejected")}
                         className={`px-2.5 py-1 text-[11px] font-semibold rounded-full border outline-none cursor-pointer transition-colors ${getStatusBadgeClass(r.status)}`}
                       >
                         <option value="Pending">Pending</option>
@@ -235,7 +315,7 @@ export default function AdminHotelRegistrationsPage() {
                         <option value="Rejected">Rejected</option>
                       </select>
                     </td>
-                    <td className="py-4 px-4 text-right">
+                    <td className="py-4 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => setViewingReg(r)}
@@ -261,10 +341,10 @@ export default function AdminHotelRegistrationsPage() {
         )}
       </div>
 
-      {/* Detail Modal */}
+      {/* --- Detail Modal --- */}
       {viewingReg && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+          <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
             <div className="sticky top-0 bg-white border-b border-border/50 px-6 py-4 flex items-center justify-between z-10">
               <div className="flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-primary" />
@@ -281,7 +361,12 @@ export default function AdminHotelRegistrationsPage() {
             <div className="p-6 space-y-6 text-xs flex-1 overflow-y-auto">
               {/* Hotel Main Profile Info */}
               <div>
-                <span className="text-[9px] uppercase font-bold text-primary tracking-wider">Hotel Trade Name</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] uppercase font-bold text-primary tracking-wider">Hotel Trade Name</span>
+                  <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full ${getStatusBadgeClass(viewingReg.status)}`}>
+                    {viewingReg.status}
+                  </span>
+                </div>
                 <h4 className="font-heading font-black text-ink text-2xl mt-0.5">{viewingReg.hotelName}</h4>
                 <p className="text-muted text-xs mt-1.5 flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5 text-primary shrink-0" /> {viewingReg.hotelAddress}, {viewingReg.city}, {viewingReg.state} - {viewingReg.pincode}
@@ -290,33 +375,71 @@ export default function AdminHotelRegistrationsPage() {
 
               <hr className="border-border/30" />
 
-              {/* Legal & Operations Section */}
-              <div className="space-y-3.5">
-                <h5 className="font-heading font-bold text-ink text-xs flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-primary" /> Legal & Compliance Profile
-                </h5>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-surface p-4 border border-border/40 rounded-2xl">
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-muted block">GST Number</span>
-                    <span className="text-ink font-semibold mt-0.5 block">{viewingReg.gst}</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Legal & Operations Section */}
+                <div className="space-y-3.5">
+                  <h5 className="font-heading font-bold text-ink text-xs flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-primary" /> Legal & Compliance Profile
+                  </h5>
+                  <div className="grid grid-cols-1 gap-4 bg-surface p-4 border border-border/40 rounded-2xl">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-muted block">GST Number</span>
+                      <span className="text-ink font-semibold mt-0.5 block">{viewingReg.gst}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-muted block">Hotel Registration Number</span>
+                      <span className="text-ink font-semibold mt-0.5 block">{viewingReg.hotelRegistrationNumber}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-muted block">Fire Safety NOC Details</span>
+                      <span className="text-ink font-medium mt-0.5 block">{viewingReg.fireSafetyNoc}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-muted block">CCTV Configuration</span>
+                      <span className="text-ink font-medium mt-0.5 block">{viewingReg.cctvCamera}</span>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-muted block">Hotel Registration Number</span>
-                    <span className="text-ink font-semibold mt-0.5 block">{viewingReg.hotelRegistrationNumber}</span>
+                </div>
+
+                {/* People Details */}
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <h6 className="font-heading font-bold text-ink text-xs flex items-center gap-1">
+                      <UserCheck className="w-4 h-4 text-primary" /> Owner Details
+                    </h6>
+                    <div className="space-y-1 mt-1 text-muted bg-surface p-4 border border-border/40 rounded-2xl">
+                      <div className="text-ink font-semibold text-sm">{viewingReg.ownerName}</div>
+                      <div className="pt-1">Phone: <span className="text-ink font-medium">{viewingReg.ownerContact}</span></div>
+                      <div>Email: <span className="text-ink font-medium">{viewingReg.email}</span></div>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-muted block">Fire Safety NOC Details</span>
-                    <span className="text-ink font-medium mt-0.5 block">{viewingReg.fireSafetyNoc}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-muted block">CCTV Configuration</span>
-                    <span className="text-ink font-medium mt-0.5 block">{viewingReg.cctvCamera}</span>
+
+                  <div className="space-y-2">
+                    <h6 className="font-heading font-bold text-ink text-xs flex items-center gap-1">
+                      <UserCheck className="w-4 h-4 text-primary" /> Property Manager
+                    </h6>
+                    <div className="space-y-1 mt-1 text-muted bg-surface p-4 border border-border/40 rounded-2xl">
+                      <div className="text-ink font-semibold text-sm">{viewingReg.propertyManagerName}</div>
+                      <div className="pt-1">Phone: <span className="text-ink font-medium">{viewingReg.propertyManagerPhone}</span></div>
+                      {viewingReg.location && (
+                        <div className="pt-2">
+                          <a 
+                            href={viewingReg.location} 
+                            target="_blank" 
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary hover:bg-primary-dark text-white rounded-lg font-semibold transition-colors"
+                          >
+                            <Map className="w-3.5 h-3.5" /> View on Google Maps
+                          </a>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Financial Section */}
-              <div className="space-y-3.5">
+              <div className="space-y-3.5 border-t border-border/30 pt-6">
                 <h5 className="font-heading font-bold text-ink text-xs flex items-center gap-1.5">
                   <CreditCard className="w-4 h-4 text-primary" /> Settlement Bank Details
                 </h5>
@@ -325,68 +448,35 @@ export default function AdminHotelRegistrationsPage() {
                 </div>
               </div>
 
-              {/* People Details */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 border-t border-border/30 pt-6">
-                <div className="space-y-2">
-                  <h6 className="font-heading font-bold text-ink text-xs flex items-center gap-1">
-                    <UserCheck className="w-4 h-4 text-primary" /> Owner Details
-                  </h6>
-                  <div className="space-y-1 mt-1 text-muted">
-                    <div className="text-ink font-semibold">{viewingReg.ownerName}</div>
-                    <div>Phone: <span className="text-ink font-medium">{viewingReg.ownerContact}</span></div>
-                    <div>Contact Desk Phone: <span className="text-ink font-medium">{viewingReg.phone}</span></div>
-                    <div>Email: <span className="text-ink font-medium">{viewingReg.email}</span></div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <h6 className="font-heading font-bold text-ink text-xs flex items-center gap-1">
-                    <UserCheck className="w-4 h-4 text-primary" /> Property Manager
-                  </h6>
-                  <div className="space-y-1 mt-1 text-muted">
-                    <div className="text-ink font-semibold">{viewingReg.propertyManagerName}</div>
-                    <div>Phone: <span className="text-ink font-medium">{viewingReg.propertyManagerPhone}</span></div>
-                    {viewingReg.location && (
-                      <div className="pt-2">
-                        <a 
-                          href={viewingReg.location} 
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/10 rounded-lg font-semibold transition-colors"
-                        >
-                          <Map className="w-3.5 h-3.5" /> View on Google Maps
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
               {/* Photos Section */}
               <div className="space-y-4 border-t border-border/30 pt-6">
                 <h5 className="font-heading font-bold text-ink text-xs flex items-center gap-1.5">
                   <ImageIcon className="w-4 h-4 text-primary" /> Property Photo Previews
                 </h5>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {[
-                    { label: "Room", url: viewingReg.roomPic },
-                    { label: "Reception", url: viewingReg.receptionPic },
-                    { label: "Bathroom", url: viewingReg.bathroomPic },
-                    { label: "Interior/Exterior", url: viewingReg.interiorExteriorPic }
+                    ...(viewingReg.roomPics || []).map(url => ({ label: "Room", url })),
+                    ...(viewingReg.receptionPics || []).map(url => ({ label: "Reception", url })),
+                    ...(viewingReg.bathroomPics || []).map(url => ({ label: "Bathroom", url })),
+                    ...(viewingReg.interiorExteriorPics || []).map(url => ({ label: "Exterior", url }))
                   ].map((img, i) => (
-                    <div key={i} className="border border-border/40 rounded-xl overflow-hidden bg-surface flex flex-col">
-                      <div className="relative h-24 bg-surface/30">
+                    <div key={i} className="border border-border/40 rounded-xl overflow-hidden bg-surface flex flex-col group cursor-pointer" onClick={() => setLightboxImage(img.url)}>
+                      <div className="relative h-28 bg-surface/30 overflow-hidden">
                         {img.url ? (
                           <img 
-                            src={img.url} 
+                            src={getImageUrl(img.url)} 
                             alt={img.label} 
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-muted">
                             <ImageIcon className="w-5 h-5" />
                           </div>
                         )}
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                          <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
                       </div>
                       <div className="p-2 border-t border-border/30 text-center font-semibold text-[10px] text-ink uppercase">
                         {img.label}
@@ -410,7 +500,6 @@ export default function AdminHotelRegistrationsPage() {
                   <button
                     onClick={() => {
                       handleStatusChange(viewingReg.id, "Approved");
-                      setViewingReg(null);
                     }}
                     className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-md transition-colors"
                   >
@@ -419,7 +508,6 @@ export default function AdminHotelRegistrationsPage() {
                   <button
                     onClick={() => {
                       handleStatusChange(viewingReg.id, "Rejected");
-                      setViewingReg(null);
                     }}
                     className="px-6 py-3 border border-rose-200 hover:bg-rose-50 text-rose-600 font-bold rounded-xl text-xs cursor-pointer transition-colors"
                   >
@@ -439,6 +527,28 @@ export default function AdminHotelRegistrationsPage() {
           </div>
         </div>
       )}
+
+      {/* --- Fullscreen Image Lightbox --- */}
+      {lightboxImage && (
+        <div 
+          className="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm"
+          onClick={() => setLightboxImage(null)}
+        >
+          <button 
+            className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer"
+            onClick={() => setLightboxImage(null)}
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img 
+            src={getImageUrl(lightboxImage)} 
+            alt="Fullscreen Preview" 
+            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
     </div>
   );
 }

@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Star, MapPin, ShieldCheck } from "lucide-react";
-import { getHotelBySlug } from "@/lib/api";
 import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import HotelAmenities from "@/components/hotels/HotelAmenities";
 import RoomTypeSelector from "@/components/hotels/RoomTypeSelector";
@@ -12,16 +10,67 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+// ---------------------------------------------------------
+// BULLETPROOF IMAGE URL HELPER
+// ---------------------------------------------------------
+const getImageUrl = (path: string) => {
+  if (!path) return "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1920&q=80"; // Fallback image
+  if (path.startsWith("http")) return path; 
+  
+  let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost/hr/api";
+  apiUrl = apiUrl.replace(/\/$/, ""); 
+
+  if (path.startsWith('/api') && apiUrl.endsWith('/api')) {
+    apiUrl = apiUrl.substring(0, apiUrl.length - 4);
+  }
+  
+  const safePath = path.startsWith("/") ? path : `/${path}`;
+  return `${apiUrl}${safePath}`;
+};
+// ---------------------------------------------------------
+
+// --- API HELPER: FETCH SINGLE HOTEL ---
+async function fetchHotelBySlug(slug: string) {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/hotels/get_hotel.php?id=${slug}`, {
+      next: { revalidate: 0 } // Change to 60 in production for caching
+    });
+    
+    const result = await res.json();
+    
+    if (res.ok && result.status === 'success') {
+      const h = result.data;
+      
+      // Format all images safely before returning
+      return {
+        ...h,
+        image: getImageUrl(h.image),
+        images: h.images.map((img: string) => getImageUrl(img)),
+        roomTypes: h.roomTypes.map((room: any) => ({
+          ...room,
+          image: getImageUrl(room.image)
+        }))
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error("Failed to fetch hotel details:", error);
+    return null;
+  }
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const hotel = await getHotelBySlug(slug);
+  const hotel = await fetchHotelBySlug(slug);
+  
   if (!hotel) return { title: "Hotel Not Found" };
+  
   return {
     title: `${hotel.name} — ${hotel.city}`,
-    description: hotel.overview.substring(0, 160),
+    description: hotel.overview ? hotel.overview.substring(0, 160) : "Book this premium hotel.",
     openGraph: {
       title: `${hotel.name} — ${hotel.city}`,
-      description: hotel.overview.substring(0, 160),
+      description: hotel.overview ? hotel.overview.substring(0, 160) : "Book this premium hotel.",
       images: [{ url: hotel.image }],
     },
   };
@@ -29,26 +78,25 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function HotelDetailPage({ params }: PageProps) {
   const { slug } = await params;
-  const hotel = await getHotelBySlug(slug);
+  
+  // Fetch real data
+  const hotel = await fetchHotelBySlug(slug);
   if (!hotel) notFound();
 
   return (
     <>
       {/* Hero */}
-      <div className="relative h-72 lg:h-96 flex items-end overflow-hidden">
-        <Image
+      <div className="relative h-72 lg:h-96 flex items-end overflow-hidden bg-surface">
+        <img
           src={hotel.image}
           alt={hotel.name}
-          fill
-          className="object-cover"
-          priority
-          sizes="100vw"
+          className="absolute inset-0 w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
         <div className="container-wide relative z-10 pb-8">
           <div className="flex flex-wrap items-center gap-3 mb-3">
             <span className="px-2.5 py-1 bg-white/90 backdrop-blur-sm rounded-full flex items-center gap-1">
-              {Array.from({ length: hotel.starRating }).map((_, i) => (
+              {Array.from({ length: hotel.starRating || 3 }).map((_, i) => (
                 <Star key={i} className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
               ))}
             </span>
@@ -88,29 +136,27 @@ export default async function HotelDetailPage({ params }: PageProps) {
               <h2 className="font-heading font-semibold text-ink text-xl mb-3">
                 About This Hotel
               </h2>
-              <p className="text-muted text-sm leading-relaxed">
-                {hotel.overview}
+              <p className="text-muted text-sm leading-relaxed whitespace-pre-line">
+                {hotel.overview || "No description provided."}
               </p>
             </div>
 
             {/* Image Gallery */}
-            {hotel.images.length > 1 && (
+            {hotel.images && hotel.images.length > 0 && (
               <div>
                 <h3 className="font-heading font-semibold text-ink text-lg mb-4">
                   Gallery
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {hotel.images.map((img, index) => (
+                  {hotel.images.slice(0, 6).map((img: string, index: number) => (
                     <div
                       key={index}
-                      className="relative h-40 rounded-xl overflow-hidden img-zoom"
+                      className="relative h-40 rounded-xl overflow-hidden img-zoom bg-surface"
                     >
-                      <Image
+                      <img
                         src={img}
-                        alt={`${hotel.name} - ${index + 1}`}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 640px) 50vw, 33vw"
+                        alt={`${hotel.name} gallery ${index + 1}`}
+                        className="w-full h-full object-cover"
                       />
                     </div>
                   ))}
@@ -119,10 +165,14 @@ export default async function HotelDetailPage({ params }: PageProps) {
             )}
 
             {/* Amenities */}
-            <HotelAmenities amenities={hotel.amenities} />
+            {hotel.amenities && hotel.amenities.length > 0 && (
+              <HotelAmenities amenities={hotel.amenities} />
+            )}
 
             {/* Room Types */}
-            <RoomTypeSelector rooms={hotel.roomTypes} />
+            {hotel.roomTypes && hotel.roomTypes.length > 0 && (
+              <RoomTypeSelector rooms={hotel.roomTypes} />
+            )}
 
             {/* Cancellation Policy */}
             <div className="bg-surface rounded-2xl p-6">
@@ -144,7 +194,7 @@ export default async function HotelDetailPage({ params }: PageProps) {
               <HotelBookingForm
                 hotelId={hotel.id}
                 hotelName={hotel.name}
-                roomTypes={hotel.roomTypes.map((r) => ({
+                roomTypes={hotel.roomTypes.map((r: any) => ({
                   name: r.name,
                   pricePerNight: r.pricePerNight,
                 }))}

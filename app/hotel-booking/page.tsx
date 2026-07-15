@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getHotels } from "@/lib/api";
 import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import HotelCard from "@/components/hotels/HotelCard";
 import HotelSearchBar from "@/components/hotels/HotelSearchBar";
@@ -11,8 +10,90 @@ export const metadata: Metadata = {
     "Book premium hotels across India at the best rates. Search hotels in Patna, Goa, Shimla, Udaipur, and more with flexible cancellation and instant confirmation.",
 };
 
-export default async function HotelBookingPage() {
-  const hotels = await getHotels();
+// ---------------------------------------------------------
+// BULLETPROOF IMAGE URL HELPER
+// ---------------------------------------------------------
+const getImageUrl = (path: string) => {
+  if (!path) return "";
+  // If it's already an external/absolute URL (like unsplash), just return it
+  if (path.startsWith("http")) return path; 
+  
+  // Get base URL, fallback to localhost if env fails
+  let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost/hr/api";
+  apiUrl = apiUrl.replace(/\/$/, ""); // Remove trailing slash if present
+
+  // If the path from DB starts with '/api', and your apiUrl ends with '/api',
+  // we remove the '/api' from the base URL so it doesn't duplicate.
+  if (path.startsWith('/api') && apiUrl.endsWith('/api')) {
+    apiUrl = apiUrl.substring(0, apiUrl.length - 4);
+  }
+  
+  // Ensure the path starts with a slash
+  const safePath = path.startsWith("/") ? path : `/${path}`;
+  
+  return `${apiUrl}${safePath}`;
+};
+// ---------------------------------------------------------
+
+// --- API HELPER: FETCH APPROVED HOTELS ---
+async function getApprovedHotels() {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/hotels/list_approved.php`, {
+      next: { revalidate: 60 } // Automatically refreshes cache every 60 seconds
+    });
+    
+    const result = await res.json();
+    
+    if (res.ok && result.status === 'success') {
+      // Map through the data to fix the image URLs, add slugs, and append city to location
+      return result.data.map((hotel: any) => ({
+        ...hotel,
+        // FIX 1: Provide a fallback slug (using ID) so the View button stops showing "undefined"
+        slug: hotel.slug || hotel.id.toString(),
+        
+        // FIX 2: Append the city to the location address so the Card shows it automatically
+        location: hotel.location ? `${hotel.location}, ${hotel.city}` : hotel.city,
+        
+        // Ensure image URL is absolute
+        image: getImageUrl(hotel.image)
+      }));
+    }
+    
+    return [];
+  } catch (error) {
+    console.error("Failed to fetch approved hotels:", error);
+    return [];
+  }
+}
+
+// Next.js 15+ Page Props structure
+interface PageProps {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+export default async function HotelBookingPage({ searchParams }: PageProps) {
+  // Await search params for filtering
+  const resolvedSearchParams = await searchParams;
+  const searchQuery = (resolvedSearchParams?.query as string) || "";
+  const locationQuery = (resolvedSearchParams?.location as string) || "";
+
+  // Fetch dynamic database payload
+  let hotels = await getApprovedHotels();
+
+  // FIX 3: Server-side filtering based on URL parameters from HotelSearchBar
+  if (searchQuery || locationQuery) {
+    hotels = hotels.filter((hotel: any) => {
+      const matchesName = hotel.name?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCity = hotel.city?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesLocation = hotel.city?.toLowerCase().includes(locationQuery.toLowerCase()) || 
+                              hotel.state?.toLowerCase().includes(locationQuery.toLowerCase());
+      
+      if (searchQuery && locationQuery) return (matchesName || matchesCity) && matchesLocation;
+      if (searchQuery) return matchesName || matchesCity;
+      if (locationQuery) return matchesLocation;
+      return true;
+    });
+  }
 
   return (
     <>
@@ -46,18 +127,22 @@ export default async function HotelBookingPage() {
       <div className="container-wide py-8">
         <Breadcrumbs items={[{ label: "Hotel Booking" }]} />
 
+        {/* Search Bar - Make sure this component uses router.push('?query=...') */}
         <HotelSearchBar />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {hotels.map((hotel) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+          {hotels.map((hotel: any) => (
             <HotelCard key={hotel.id} hotel={hotel} />
           ))}
         </div>
 
         {hotels.length === 0 && (
-          <div className="text-center py-20">
-            <p className="text-muted text-lg">
-              No hotels found. Please try different search criteria.
+          <div className="text-center py-20 bg-surface/50 rounded-2xl border border-border mt-6">
+            <p className="text-muted text-lg font-medium">
+              No hotels found matching your criteria.
+            </p>
+            <p className="text-muted text-sm mt-1">
+              Try adjusting your search filters or check back later.
             </p>
           </div>
         )}

@@ -149,18 +149,21 @@ export const hotelRegistrationSchema = z.object({
   bankDetails: z
     .string()
     .min(10, "Specify full bank details (A/C, IFSC, Bank Name)"),
-  roomPic: z
-    .string()
-    .min(1, "Room photo is required"),
-  receptionPic: z
-    .string()
-    .min(1, "Reception photo is required"),
-  bathroomPic: z
-    .string()
-    .min(1, "Bathroom photo is required"),
-  interiorExteriorPic: z
-    .string()
-    .min(1, "Interior/exterior photo is required"),
+  
+  // Pluralized array fields for multiple native file uploads
+  roomPics: z
+    .array(z.any())
+    .min(1, "At least 1 room photo is required"),
+  receptionPics: z
+    .array(z.any())
+    .min(1, "At least 1 reception photo is required"),
+  bathroomPics: z
+    .array(z.any())
+    .min(1, "At least 1 bathroom photo is required"),
+  interiorExteriorPics: z
+    .array(z.any())
+    .min(1, "At least 1 interior/exterior photo is required"),
+  
   location: z
     .string()
     .min(2, "Specify Google Maps URL or coordinates"),

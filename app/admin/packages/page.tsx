@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import type { Package } from "@/lib/types";
 import { 
   Plus, Edit2, Trash2, MapPin, Clock, X, Image as ImageIcon, Save, CheckSquare, 
-  Palmtree, Loader2, CheckCircle2, XCircle, Mail, Phone, Calendar, Users 
+  Palmtree, Loader2, CheckCircle2, XCircle, Mail, Phone, Calendar, Users, ShieldCheck, UploadCloud
 } from "lucide-react";
 import Image from "next/image";
 
@@ -19,9 +19,23 @@ interface BookingRequest {
   adults: number;
   children: number;
   special_requests: string;
-  status: "pending" | "confirmed" | "cancelled";
+  total_amount?: string | number;
+  status: "pending" | "confirmed" | "cancelled" | "completed";
   created_at: string;
 }
+
+// Helper to construct the full image URL safely
+const getImageUrl = (path: string) => {
+  if (!path) return "";
+  if (path.startsWith("http")) return path; 
+  let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost/hr/api";
+  apiUrl = apiUrl.replace(/\/$/, ""); 
+  if (path.startsWith('/api') && apiUrl.endsWith('/api')) {
+    apiUrl = apiUrl.substring(0, apiUrl.length - 4);
+  }
+  const safePath = path.startsWith("/") ? path : `/${path}`;
+  return `${apiUrl}${safePath}`;
+};
 
 export default function AdminPackagesPage() {
   const [packages, setPackages] = useState<Package[]>([]);
@@ -31,10 +45,16 @@ export default function AdminPackagesPage() {
   const [activeTab, setActiveTab] = useState<"catalog" | "bookings">("catalog");
   const [isSaving, setIsSaving] = useState(false);
   
+  // Image Upload State
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Bookings State
   const [bookings, setBookings] = useState<BookingRequest[]>([]);
   const [isBookingsLoading, setIsBookingsLoading] = useState(false);
   const [bookingsSearchQuery, setBookingsSearchQuery] = useState("");
+  const [processingBookingId, setProcessingBookingId] = useState<string | number | null>(null);
 
   // Custom lists state inside form
   const [highlightInput, setHighlightInput] = useState("");
@@ -56,6 +76,11 @@ export default function AdminPackagesPage() {
       String(booking.id).includes(q)
     );
   });
+
+  // Calculate total revenue for confirmed & completed bookings
+  const totalConfirmedRevenue = bookings
+    .filter((b) => b.status === "confirmed" || b.status === "completed")
+    .reduce((sum, b) => sum + (Number(b.total_amount) || 0), 0);
 
   // --- API: FETCH ALL PACKAGES ---
   const loadPackages = async () => {
@@ -99,7 +124,17 @@ export default function AdminPackagesPage() {
 
   // --- API: UPDATE BOOKING STATUS ---
   const updateBookingStatus = async (id: string | number, newStatus: string) => {
-    if (!confirm(`Are you sure you want to mark this booking as ${newStatus}?`)) return;
+    let confirmMessage = `Are you sure you want to mark this booking as ${newStatus}?`;
+    
+    if (newStatus === 'cancelled') {
+      confirmMessage = "Are you sure you want to cancel this booking? This will trigger a Razorpay refund and send a cancellation email to the customer.";
+    } else if (newStatus === 'completed') {
+      confirmMessage = "Are you sure you want to mark this booking as completed? This will send a thank-you/completion email to the customer.";
+    }
+
+    if (!confirm(confirmMessage)) return;
+    
+    setProcessingBookingId(id);
     
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/bookings/update_status.php`, {
@@ -111,11 +146,14 @@ export default function AdminPackagesPage() {
 
       if (response.ok && result.status === "success") {
         setBookings(prev => prev.map(b => b.id === id ? { ...b, status: newStatus as any } : b));
+        alert(`Booking successfully updated to ${newStatus}!`);
       } else {
         alert(result.message || "Failed to update booking status");
       }
     } catch (e) {
-      alert("Error updating status.");
+      alert("Error updating status. Please check your network connection.");
+    } finally {
+      setProcessingBookingId(null);
     }
   };
 
@@ -142,6 +180,8 @@ export default function AdminPackagesPage() {
     });
     setHighlightsList([]);
     setPlacesList([]);
+    setImageFile(null);
+    setImagePreview(null);
     setErrors({});
     setModalOpen(true);
   };
@@ -150,6 +190,8 @@ export default function AdminPackagesPage() {
     setCurrentPkg(pkg);
     setHighlightsList(pkg.highlights || []);
     setPlacesList(pkg.placesCovered || []);
+    setImageFile(null);
+    setImagePreview(pkg.image ? getImageUrl(pkg.image) : null);
     setErrors({});
     setModalOpen(true);
   };
@@ -187,6 +229,14 @@ export default function AdminPackagesPage() {
     setCurrentPkg(prev => prev ? { ...prev, [name]: targetValue } : null);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
   const addHighlight = () => {
     if (!highlightInput.trim()) return;
     setHighlightsList(prev => [...prev, highlightInput.trim()]);
@@ -201,15 +251,17 @@ export default function AdminPackagesPage() {
   };
   const removePlace = (idx: number) => setPlacesList(prev => prev.filter((_, i) => i !== idx));
 
-  const validateForm = () => {
+  // Fix 1: Pass arrays as arguments so it checks the most up-to-date lists
+  const validateForm = (finalHighlights: string[], finalPlaces: string[]) => {
     const errs: Record<string, string> = {};
     if (!currentPkg?.title?.trim()) errs.title = "Title is required";
     if (!currentPkg?.destination?.trim()) errs.destination = "Destination is required";
     if (!currentPkg?.duration?.trim()) errs.duration = "Duration is required";
-    if (!currentPkg?.startingPrice || currentPkg.startingPrice <= 0) errs.startingPrice = "Valid starting price is required";
+    if (!currentPkg?.startingPrice || Number(currentPkg.startingPrice) <= 0) errs.startingPrice = "Valid starting price is required";
     if (!currentPkg?.overview?.trim() || currentPkg.overview.length < 20) errs.overview = "Description must be at least 20 chars";
-    if (highlightsList.length === 0) errs.highlights = "Add at least one highlight";
-    if (placesList.length === 0) errs.places = "Add at least one place covered";
+    if (finalHighlights.length === 0) errs.highlights = "Add at least one highlight";
+    if (finalPlaces.length === 0) errs.places = "Add at least one place covered";
+    
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -217,35 +269,80 @@ export default function AdminPackagesPage() {
   // --- API: CREATE OR UPDATE PACKAGE ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+
+    // Auto-add pending text if user forgot to click "Add" button
+    let finalHighlights = [...highlightsList];
+    if (highlightInput.trim()) {
+      finalHighlights.push(highlightInput.trim());
+      setHighlightsList(finalHighlights);
+      setHighlightInput("");
+    }
+
+    let finalPlaces = [...placesList];
+    if (placeInput.trim()) {
+      finalPlaces.push(placeInput.trim());
+      setPlacesList(finalPlaces);
+      setPlaceInput("");
+    }
+
+    if (!validateForm(finalHighlights, finalPlaces)) {
+      alert("Please check the form for missing fields (highlighted in red).");
+      return;
+    }
     
     setIsSaving(true);
     try {
-      const payload = {
-        ...currentPkg,
-        highlights: highlightsList,
-        placesCovered: placesList,
-        nights: currentPkg?.duration?.toLowerCase().includes("night") ? parseInt(currentPkg.duration.match(/\d+/)?.at(0) || "0") : 0,
-        days: currentPkg?.duration?.toLowerCase().includes("day") ? parseInt(currentPkg.duration.split("/").pop()?.match(/\d+/)?.at(0) || "0") : 0,
-        pricing: currentPkg?.pricing || [
-          { hotelCategory: "Standard Package", plan: "MAP Plan", pricePerPerson: currentPkg?.startingPrice || 0, recommended: true }
-        ],
-        itinerary: currentPkg?.itinerary || [
-          { day: 1, title: "Day 1 Itinerary", description: "Arrival and local sightseeing overview." }
-        ]
-      };
+      const formData = new FormData();
+      formData.append("title", currentPkg?.title || "");
+      formData.append("destination", currentPkg?.destination || "");
+      formData.append("duration", currentPkg?.duration || "");
+      formData.append("startingPrice", String(currentPkg?.startingPrice || 0));
+      formData.append("category", currentPkg?.category || "domestic");
+      formData.append("featured", currentPkg?.featured ? "true" : "false");
+      formData.append("overview", currentPkg?.overview || "");
       
-      const endpoint = payload.id 
+      formData.append("highlights", JSON.stringify(finalHighlights));
+      formData.append("placesCovered", JSON.stringify(finalPlaces));
+      
+      const nights = currentPkg?.duration?.toLowerCase().includes("night") ? parseInt(currentPkg.duration.match(/\d+/)?.at(0) || "0") : 0;
+      const days = currentPkg?.duration?.toLowerCase().includes("day") ? parseInt(currentPkg.duration.split("/").pop()?.match(/\d+/)?.at(0) || "0") : 0;
+      formData.append("nights", String(nights));
+      formData.append("days", String(days));
+      
+      formData.append("pricing", JSON.stringify(currentPkg?.pricing || [
+        { hotelCategory: "Standard Package", plan: "MAP Plan", pricePerPerson: currentPkg?.startingPrice || 0, recommended: true }
+      ]));
+      formData.append("itinerary", JSON.stringify(currentPkg?.itinerary || [
+        { day: 1, title: "Day 1 Itinerary", description: "Arrival and local sightseeing overview." }
+      ]));
+
+      if (imageFile) {
+        formData.append("image", imageFile);
+      } else if (currentPkg?.image) {
+        formData.append("existing_image", currentPkg.image);
+      }
+
+      if (currentPkg?.id) formData.append("id", String(currentPkg.id));
+
+      const endpoint = currentPkg?.id 
         ? `${process.env.NEXT_PUBLIC_API_URL}/packages/update.php` 
         : `${process.env.NEXT_PUBLIC_API_URL}/packages/create.php`;
 
       const response = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: formData 
       });
       
-      const result = await response.json();
+      // Fix 2: Bulletproof JSON Parsing (shows you exact errors if PHP fails)
+      const rawText = await response.text();
+      let result;
+      try {
+        result = JSON.parse(rawText);
+      } catch (err) {
+        console.error("SERVER ERROR:", rawText);
+        alert("The server encountered an error while saving. Please check your developer console.");
+        return;
+      }
 
       if (response.ok && result.status === "success") {
         await loadPackages(); 
@@ -254,7 +351,7 @@ export default function AdminPackagesPage() {
         alert(result.message || "Error saving package");
       }
     } catch (e) {
-      alert("Error: Could not save package.");
+      alert("Error: Could not communicate with the server.");
     } finally {
       setIsSaving(false);
     }
@@ -318,6 +415,19 @@ export default function AdminPackagesPage() {
                 className="w-full px-4 py-2.5 bg-white border border-border rounded-xl text-xs text-ink focus:border-primary outline-none shadow-sm transition-all"
               />
             </div>
+
+            {/* Total Confirmed Revenue Card */}
+            <div className="bg-green-50 px-5 py-2.5 rounded-xl border border-green-100 flex items-center gap-3 shrink-0">
+              <div className="p-2 bg-green-100 rounded-lg text-green-700">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-[10px] text-green-800 font-bold uppercase tracking-wider">Confirmed Revenue</p>
+                <p className="font-heading text-lg font-black text-green-700">
+                  ₹{totalConfirmedRevenue.toLocaleString("en-IN")}
+                </p>
+              </div>
+            </div>
           </div>
 
           {isBookingsLoading ? (
@@ -344,7 +454,8 @@ export default function AdminPackagesPage() {
                     <th className="px-6 py-4">Customer Details</th>
                     <th className="px-6 py-4">Travel Details</th>
                     <th className="px-6 py-4">Package & Notes</th>
-                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4">Total Amount</th>
+                    <th className="px-6 py-4 text-center">Status</th>
                     <th className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -384,8 +495,14 @@ export default function AdminPackagesPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
+                        <span className="font-semibold text-ink block">
+                          ₹{Number(booking.total_amount || 0).toLocaleString("en-IN")}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
                         <span className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full ${
                           booking.status === 'confirmed' ? 'bg-green-100 text-green-700' :
+                          booking.status === 'completed' ? 'bg-blue-100 text-blue-700' :
                           booking.status === 'cancelled' ? 'bg-red-100 text-red-700' :
                           'bg-amber-100 text-amber-700'
                         }`}>
@@ -393,22 +510,51 @@ export default function AdminPackagesPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        {booking.status === 'pending' && (
+                        {processingBookingId === booking.id ? (
+                          <div className="flex justify-end pr-4">
+                            <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                          </div>
+                        ) : (
                           <div className="flex justify-end gap-2">
-                            <button 
-                              onClick={() => updateBookingStatus(booking.id, 'confirmed')} 
-                              className="p-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg transition-colors cursor-pointer" 
-                              title="Confirm Booking"
-                            >
-                              <CheckCircle2 className="w-4 h-4"/>
-                            </button>
-                            <button 
-                              onClick={() => updateBookingStatus(booking.id, 'cancelled')} 
-                              className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors cursor-pointer" 
-                              title="Cancel Booking"
-                            >
-                              <XCircle className="w-4 h-4"/>
-                            </button>
+                            {/* Pending Status Buttons */}
+                            {booking.status === 'pending' && (
+                              <>
+                                <button 
+                                  onClick={() => updateBookingStatus(booking.id, 'confirmed')} 
+                                  className="p-1.5 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg transition-colors cursor-pointer" 
+                                  title="Confirm Booking"
+                                >
+                                  <CheckCircle2 className="w-4 h-4"/>
+                                </button>
+                                <button 
+                                  onClick={() => updateBookingStatus(booking.id, 'cancelled')} 
+                                  className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors cursor-pointer" 
+                                  title="Cancel Booking & Issue Refund"
+                                >
+                                  <XCircle className="w-4 h-4"/>
+                                </button>
+                              </>
+                            )}
+
+                            {/* Confirmed Status Buttons (Complete Tour or Cancel & Refund) */}
+                            {booking.status === 'confirmed' && (
+                              <>
+                                <button 
+                                  onClick={() => updateBookingStatus(booking.id, 'completed')} 
+                                  className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer" 
+                                  title="Mark as Completed & Send Email"
+                                >
+                                  <ShieldCheck className="w-4 h-4"/>
+                                </button>
+                                <button 
+                                  onClick={() => updateBookingStatus(booking.id, 'cancelled')} 
+                                  className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors cursor-pointer" 
+                                  title="Cancel Booking & Issue Refund"
+                                >
+                                  <XCircle className="w-4 h-4"/>
+                                </button>
+                              </>
+                            )}
                           </div>
                         )}
                       </td>
@@ -423,7 +569,7 @@ export default function AdminPackagesPage() {
         <>
           {isLoading ? (
             <div className="py-20 flex flex-col items-center justify-center text-center">
-              <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin mb-3" />
+              <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
               <p className="text-muted text-xs">Loading packages data...</p>
             </div>
           ) : packages.length === 0 ? (
@@ -449,12 +595,10 @@ export default function AdminPackagesPage() {
                 >
                   <div className="relative h-48 bg-surface">
                     {pkg.image ? (
-                      <Image
-                        src={pkg.image}
+                      <img
+                        src={getImageUrl(pkg.image)}
                         alt={pkg.title}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        className="w-full h-full object-cover"
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center text-muted">
@@ -491,7 +635,7 @@ export default function AdminPackagesPage() {
                       <div>
                         <span className="text-[10px] text-muted block">Starting Price</span>
                         <span className="font-heading font-black text-lg text-primary">
-                          ₹{pkg.startingPrice.toLocaleString("en-IN")}
+                          ₹{Number(pkg.startingPrice || 0).toLocaleString("en-IN")}
                         </span>
                       </div>
 
@@ -522,7 +666,7 @@ export default function AdminPackagesPage() {
 
       {/* Editor Modal Overlay */}
       {modalOpen && currentPkg && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl border border-border max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
             <div className="p-6 border-b border-border/50 flex items-center justify-between sticky top-0 bg-white z-10">
               <h2 className="font-heading font-bold text-lg text-ink">
@@ -538,6 +682,39 @@ export default function AdminPackagesPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-5 flex-1 overflow-y-auto">
+              
+              {/* IMAGE UPLOAD SECTION */}
+              <div className="sm:col-span-2">
+                <label className="block text-[11px] uppercase tracking-wider font-semibold text-muted mb-1.5">Package Banner Image</label>
+                <div className="flex items-center gap-4">
+                  <div className="w-32 h-20 bg-surface rounded-xl border border-border/50 overflow-hidden flex-shrink-0 flex items-center justify-center relative">
+                    {imagePreview ? (
+                      <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <ImageIcon className="w-6 h-6 text-muted/50" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      className="hidden" 
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-surface hover:bg-border/50 text-ink border border-border rounded-xl text-xs font-semibold cursor-pointer transition-colors"
+                    >
+                      <UploadCloud className="w-4 h-4" />
+                      {imagePreview ? "Change Image" : "Upload Image"}
+                    </button>
+                    <p className="text-[10px] text-muted mt-1.5">Recommended: 1920x1080px JPG or PNG.</p>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
                   <label className="block text-[11px] uppercase tracking-wider font-semibold text-muted mb-1.5">Package Title *</label>
@@ -608,18 +785,6 @@ export default function AdminPackagesPage() {
                   </select>
                 </div>
 
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] uppercase tracking-wider font-semibold text-muted mb-1.5">Main Banner Image URL</label>
-                  <input
-                    type="text"
-                    name="image"
-                    value={currentPkg.image || ""}
-                    onChange={handleInputChange}
-                    placeholder="Unsplash / external image link"
-                    className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                  />
-                </div>
-
                 <div className="sm:col-span-2 flex items-center gap-2 py-2">
                   <input
                     type="checkbox"
@@ -657,7 +822,7 @@ export default function AdminPackagesPage() {
                       value={highlightInput}
                       onChange={(e) => setHighlightInput(e.target.value)}
                       placeholder="e.g. Daily Breakfast & Dinner"
-                      className="flex-1 px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none"
+                      className="flex-1 px-4 py-3 bg-surface rounded-xl text-xs border border-border focus:border-primary outline-none"
                     />
                     <button
                       type="button"
@@ -688,7 +853,7 @@ export default function AdminPackagesPage() {
                       value={placeInput}
                       onChange={(e) => setPlaceInput(e.target.value)}
                       placeholder="e.g. Pashupatinath Temple"
-                      className="flex-1 px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none"
+                      className="flex-1 px-4 py-3 bg-surface rounded-xl text-xs border border-border focus:border-primary outline-none"
                     />
                     <button
                       type="button"
@@ -718,7 +883,7 @@ export default function AdminPackagesPage() {
                   disabled={isSaving}
                   className="flex-1 py-3.5 bg-gradient-to-r from-primary to-primary-dark text-white font-semibold rounded-xl flex items-center justify-center gap-2 hover:shadow-lg active:scale-[0.98] transition-all cursor-pointer text-xs disabled:opacity-60"
                 >
-                  <Save className="w-4 h-4" />
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4" />}
                   {isSaving ? "Saving..." : "Save Changes"}
                 </button>
                 <button

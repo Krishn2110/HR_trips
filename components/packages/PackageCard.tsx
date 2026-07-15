@@ -16,7 +16,7 @@ export default function PackageCard({ pkg }: PackageCardProps) {
       {/* Image */}
       <div className="relative h-52 img-zoom">
         <Image
-          src={pkg.image}
+          src={`${process.env.NEXT_PUBLIC_API_URL}/../`+pkg.image}
           alt={pkg.title}
           fill
           className="object-cover"

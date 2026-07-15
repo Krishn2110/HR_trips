@@ -88,7 +88,7 @@ export default async function PackageDetailPage({ params }: PageProps) {
       {/* Hero */}
       <div className="relative h-72 lg:h-96 flex items-end overflow-hidden">
         <Image
-          src={pkg.image}
+          src={`${process.env.NEXT_PUBLIC_API_URL}/../`+pkg.image}
           alt={pkg.title}
           fill
           className="object-cover"

@@ -14,7 +14,6 @@ import {
   Phone,
   Lock,
   MapPin,
-  FileText,
   ArrowLeft,
   ArrowRight,
   ShieldCheck,
@@ -25,7 +24,6 @@ import {
   X
 } from "lucide-react";
 import { hotelRegistrationSchema, type HotelRegistrationFormData } from "@/lib/validators";
-import { submitHotelRegistration } from "@/lib/api";
 import Breadcrumbs from "@/components/shared/Breadcrumbs";
 
 export default function HotelRegistrationPage() {
@@ -43,40 +41,53 @@ export default function HotelRegistrationPage() {
     formState: { errors },
   } = useForm<HotelRegistrationFormData>({
     resolver: zodResolver(hotelRegistrationSchema),
-    mode: "onTouched"
+    mode: "onTouched",
+    defaultValues: {
+      roomPics: [],
+      receptionPics: [],
+      bathroomPics: [],
+      interiorExteriorPics: [],
+    }
   });
 
-  const watchRoomPic = watch("roomPic");
-  const watchReceptionPic = watch("receptionPic");
-  const watchBathroomPic = watch("bathroomPic");
-  const watchInteriorExteriorPic = watch("interiorExteriorPic");
+  const watchRoomPics = watch("roomPics") || [];
+  const watchReceptionPics = watch("receptionPics") || [];
+  const watchBathroomPics = watch("bathroomPics") || [];
+  const watchInteriorExteriorPics = watch("interiorExteriorPics") || [];
 
-  const handleImageUpload = (
+  // --- NATIVE FILE UPLOAD HANDLER ---
+  const handleMultipleImageUpload = (
     e: React.ChangeEvent<HTMLInputElement>,
-    field: keyof HotelRegistrationFormData
+    field: "roomPics" | "receptionPics" | "bathroomPics" | "interiorExteriorPics"
   ) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      alert("Please upload an image smaller than 2MB.");
-      return;
+    const validFiles = files.filter(f => f.size <= 2 * 1024 * 1024);
+    if (validFiles.length !== files.length) {
+      alert("Some images were larger than 2MB and were skipped.");
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setValue(field, reader.result as string, { shouldValidate: true });
-    };
-    reader.readAsDataURL(file);
+    const currentFiles = watch(field) || [];
+    setValue(field, [...currentFiles, ...validFiles] as any, { shouldValidate: true });
+    
+    e.target.value = '';
+  };
+
+  const removeImage = (
+    field: "roomPics" | "receptionPics" | "bathroomPics" | "interiorExteriorPics",
+    indexToRemove: number
+  ) => {
+    const currentFiles = watch(field) || [];
+    setValue(field, currentFiles.filter((_, idx) => idx !== indexToRemove) as any, { shouldValidate: true });
   };
 
   const nextStep = async () => {
-    // Validate current step fields before proceeding
     let fieldsToValidate: any[] = [];
     if (currentStep === 1) {
       fieldsToValidate = ["ownerName", "ownerContact", "propertyManagerName", "propertyManagerPhone", "email", "password"];
     } else if (currentStep === 2) {
-      fieldsToValidate = ["hotelName", "gst", "hotelRegistrationNumber", "fireSafetyNoc", "cctvCamera", "bankDetails"];
+      fieldsToValidate = ["hotelName", "gst", "hotelRegistrationNumber", "fireSafetyNoc", "cctvCamera", "phone", "bankDetails"];
     }
     
     const isValid = await trigger(fieldsToValidate as any);
@@ -89,15 +100,61 @@ export default function HotelRegistrationPage() {
     setCurrentStep((prev) => prev - 1);
   };
 
+  // --- ERROR BOUNDARY ---
+  const onInvalid = (validationErrors: any) => {
+    console.error("Form Validation Failed! Missing/Invalid Fields:", validationErrors);
+    
+    const step1Fields = ["ownerName", "ownerContact", "propertyManagerName", "propertyManagerPhone", "email", "password"];
+    const step2Fields = ["hotelName", "gst", "hotelRegistrationNumber", "fireSafetyNoc", "cctvCamera", "phone", "bankDetails"];
+    
+    if (step1Fields.some(field => validationErrors[field])) {
+      setCurrentStep(1);
+    } else if (step2Fields.some(field => validationErrors[field])) {
+      setCurrentStep(2);
+    } else {
+      // If the error isn't in Step 1 or 2, it must be the photos in Step 3
+      setCurrentStep(3);
+      alert("Please ensure you have uploaded at least 1 photo for every category.");
+    }
+  };
+
+  // --- FORMDATA SUBMISSION ---
   const onSubmit = async (data: HotelRegistrationFormData) => {
     setStatus("loading");
     setErrorMsg("");
+    
     try {
-      await submitHotelRegistration(data);
-      setStatus("success");
-      reset();
-      setCurrentStep(1);
+      const formData = new FormData();
+
+      Object.keys(data).forEach((key) => {
+        if (!['roomPics', 'receptionPics', 'bathroomPics', 'interiorExteriorPics'].includes(key)) {
+          // @ts-ignore
+          formData.append(key, data[key]);
+        }
+      });
+
+      // Append files for PHP arrays
+      data.roomPics.forEach((file: File) => formData.append("roomPics[]", file));
+      data.receptionPics.forEach((file: File) => formData.append("receptionPics[]", file));
+      data.bathroomPics.forEach((file: File) => formData.append("bathroomPics[]", file));
+      data.interiorExteriorPics.forEach((file: File) => formData.append("interiorExteriorPics[]", file));
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/hotels/register.php`, {
+        method: "POST",
+        body: formData
+      });
+      
+      const result = await response.json();
+
+      if (response.ok && result.status === "success") {
+        setStatus("success");
+        reset();
+        setCurrentStep(1);
+      } else {
+        throw new Error(result.message);
+      }
     } catch (err: any) {
+      console.error(err);
       setStatus("error");
       setErrorMsg(err?.message || "Registration failed. Please try again.");
       setTimeout(() => setStatus("idle"), 4000);
@@ -106,28 +163,18 @@ export default function HotelRegistrationPage() {
 
   return (
     <>
-      {/* Hero Banner */}
       <div className="relative h-52 lg:h-64 flex items-end overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage:
-              "url('https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=1400&q=80')",
-          }}
+          style={{ backgroundImage: "url('https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=1400&q=80')" }}
         >
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/30" />
         </div>
         <div className="container-wide relative z-10 pb-8">
-          <h1
-            style={{ color: "#ffffff" }}
-            className="font-heading text-3xl lg:text-4xl font-bold !text-white mb-1"
-          >
+          <h1 className="font-heading text-3xl lg:text-4xl font-bold text-white mb-1">
             Register Your Hotel
           </h1>
-          <p
-            style={{ color: "rgba(255, 255, 255, 0.8)" }}
-            className="text-sm lg:text-base !text-white/80"
-          >
+          <p className="text-sm lg:text-base text-white/80">
             Partner with HR Trips and get listed in front of thousands of travelers
           </p>
         </div>
@@ -151,21 +198,14 @@ export default function HotelRegistrationPage() {
             </h2>
             <p className="text-muted text-sm max-w-md mx-auto mb-6">
               Your hotel registration request has been submitted and is currently under review.
-              Once approved, you will be able to log in to your owner dashboard to set up room categories, pricing, and deluxe options.
+              Once approved, you will be able to log in to your owner dashboard.
             </p>
             <div className="flex items-center justify-center gap-4">
               <Link
                 href="/hotel-booking"
                 className="inline-flex items-center gap-2 px-6 py-3 border border-border rounded-xl text-sm font-semibold text-ink hover:bg-surface transition-colors"
               >
-                <ArrowLeft className="w-4 h-4" />
-                Back to Hotels
-              </Link>
-              <Link
-                href="/hotel-owner/login"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all"
-              >
-                Go to Owner Login
+                <ArrowLeft className="w-4 h-4" /> Back to Hotels
               </Link>
             </div>
           </div>
@@ -181,468 +221,364 @@ export default function HotelRegistrationPage() {
                 ].map((s, idx) => (
                   <div key={s.step} className="flex items-center flex-1 last:flex-initial">
                     <div className="flex items-center gap-3">
-                      <div
-                        className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                          currentStep >= s.step
-                            ? "bg-primary text-white"
-                            : "bg-surface text-muted border border-border"
-                        }`}
-                      >
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${currentStep >= s.step ? "bg-primary text-white" : "bg-surface text-muted border border-border"}`}>
                         {s.step}
                       </div>
-                      <span
-                        className={`text-xs font-semibold hidden sm:inline ${
-                          currentStep >= s.step ? "text-ink" : "text-muted"
-                        }`}
-                      >
+                      <span className={`text-xs font-semibold hidden sm:inline ${currentStep >= s.step ? "text-ink" : "text-muted"}`}>
                         {s.title}
                       </span>
                     </div>
                     {idx < 2 && (
-                      <div
-                        className={`flex-1 h-0.5 mx-4 transition-colors ${
-                          currentStep > s.step ? "bg-primary" : "bg-border/60"
-                        }`}
-                      />
+                      <div className={`flex-1 h-0.5 mx-4 transition-colors ${currentStep > s.step ? "bg-primary" : "bg-border/60"}`} />
                     )}
                   </div>
                 ))}
               </div>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+            <form onSubmit={handleSubmit(onSubmit, onInvalid)} noValidate className="space-y-8">
+              
               {/* STEP 1: Owner and Property Manager Details */}
-              {currentStep === 1 && (
-                <div className="bg-white rounded-2xl border border-border/50 shadow-sm p-6 space-y-6">
-                  <h3 className="font-heading font-bold text-ink text-base flex items-center gap-2 border-b border-border/40 pb-3">
-                    <User className="w-5 h-5 text-primary" />
-                    Account & Owner Details
-                  </h3>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">Owner Full Name *</label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                        <input
-                          {...register("ownerName")}
-                          placeholder="Legal owner name"
-                          className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                        />
-                      </div>
-                      {errors.ownerName && (
-                        <p className="text-red-500 text-[10px] mt-1">{errors.ownerName.message}</p>
-                      )}
+              <div className={`bg-white rounded-2xl border border-border/50 shadow-sm p-6 space-y-6 ${currentStep === 1 ? 'block' : 'hidden'}`}>
+                <h3 className="font-heading font-bold text-ink text-base flex items-center gap-2 border-b border-border/40 pb-3">
+                  <User className="w-5 h-5 text-primary" /> Account & Owner Details
+                </h3>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-muted mb-1.5">Owner Full Name *</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                      <input
+                        {...register("ownerName")}
+                        placeholder="Legal owner name"
+                        className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                      />
                     </div>
+                    {errors.ownerName && <p className="text-red-500 text-[10px] mt-1">{errors.ownerName.message}</p>}
+                  </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">Owner Contact Number *</label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                        <input
-                          {...register("ownerContact")}
-                          placeholder="Owner mobile phone"
-                          className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                        />
-                      </div>
-                      {errors.ownerContact && (
-                        <p className="text-red-500 text-[10px] mt-1">{errors.ownerContact.message}</p>
-                      )}
+                  <div>
+                    <label className="block text-xs font-semibold text-muted mb-1.5">Owner Contact Number *</label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                      <input
+                        {...register("ownerContact")}
+                        placeholder="Owner mobile phone"
+                        className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                      />
                     </div>
+                    {errors.ownerContact && <p className="text-red-500 text-[10px] mt-1">{errors.ownerContact.message}</p>}
+                  </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">Property Manager Name *</label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                        <input
-                          {...register("propertyManagerName")}
-                          placeholder="Manager name at hotel"
-                          className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                        />
-                      </div>
-                      {errors.propertyManagerName && (
-                        <p className="text-red-500 text-[10px] mt-1">{errors.propertyManagerName.message}</p>
-                      )}
+                  <div>
+                    <label className="block text-xs font-semibold text-muted mb-1.5">Property Manager Name *</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                      <input
+                        {...register("propertyManagerName")}
+                        placeholder="Manager name at hotel"
+                        className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                      />
                     </div>
+                    {errors.propertyManagerName && <p className="text-red-500 text-[10px] mt-1">{errors.propertyManagerName.message}</p>}
+                  </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">Property Manager Phone *</label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                        <input
-                          {...register("propertyManagerPhone")}
-                          placeholder="Manager contact phone"
-                          className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                        />
-                      </div>
-                      {errors.propertyManagerPhone && (
-                        <p className="text-red-500 text-[10px] mt-1">{errors.propertyManagerPhone.message}</p>
-                      )}
+                  <div>
+                    <label className="block text-xs font-semibold text-muted mb-1.5">Property Manager Phone *</label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                      <input
+                        {...register("propertyManagerPhone")}
+                        placeholder="Manager contact phone"
+                        className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                      />
                     </div>
+                    {errors.propertyManagerPhone && <p className="text-red-500 text-[10px] mt-1">{errors.propertyManagerPhone.message}</p>}
+                  </div>
 
-                    <div className="border-t border-border/30 sm:col-span-2 pt-4 mt-2">
-                      <h4 className="font-heading font-semibold text-ink text-xs mb-3">Dashboard Login Details</h4>
-                    </div>
+                  <div className="border-t border-border/30 sm:col-span-2 pt-4 mt-2">
+                    <h4 className="font-heading font-semibold text-ink text-xs mb-3">Dashboard Login Details</h4>
+                  </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">Login Email *</label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                        <input
-                          {...register("email")}
-                          type="email"
-                          placeholder="owner@example.com"
-                          className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                        />
-                      </div>
-                      {errors.email && (
-                        <p className="text-red-500 text-[10px] mt-1">{errors.email.message}</p>
-                      )}
+                  <div>
+                    <label className="block text-xs font-semibold text-muted mb-1.5">Login Email *</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                      <input
+                        {...register("email")}
+                        type="email"
+                        placeholder="owner@example.com"
+                        className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                      />
                     </div>
+                    {errors.email && <p className="text-red-500 text-[10px] mt-1">{errors.email.message}</p>}
+                  </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">Dashboard Password *</label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                        <input
-                          {...register("password")}
-                          type="password"
-                          placeholder="Min 6 characters"
-                          className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                        />
-                      </div>
-                      {errors.password && (
-                        <p className="text-red-500 text-[10px] mt-1">{errors.password.message}</p>
-                      )}
+                  <div>
+                    <label className="block text-xs font-semibold text-muted mb-1.5">Dashboard Password *</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                      <input
+                        {...register("password")}
+                        type="password"
+                        placeholder="Min 6 characters"
+                        className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                      />
                     </div>
+                    {errors.password && <p className="text-red-500 text-[10px] mt-1">{errors.password.message}</p>}
                   </div>
                 </div>
-              )}
+              </div>
 
               {/* STEP 2: Hotel Details & Legals & Financials */}
-              {currentStep === 2 && (
-                <div className="bg-white rounded-2xl border border-border/50 shadow-sm p-6 space-y-6">
-                  <h3 className="font-heading font-bold text-ink text-base flex items-center gap-2 border-b border-border/40 pb-3">
-                    <ShieldCheck className="w-5 h-5 text-primary" />
-                    Hotel Documentation & Legals
-                  </h3>
+              <div className={`bg-white rounded-2xl border border-border/50 shadow-sm p-6 space-y-6 ${currentStep === 2 ? 'block' : 'hidden'}`}>
+                <h3 className="font-heading font-bold text-ink text-base flex items-center gap-2 border-b border-border/40 pb-3">
+                  <ShieldCheck className="w-5 h-5 text-primary" /> Hotel Documentation & Legals
+                </h3>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-semibold text-muted mb-1.5">Hotel Name *</label>
-                      <div className="relative">
-                        <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                        <input
-                          {...register("hotelName")}
-                          placeholder="Hotel trade name"
-                          className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                        />
-                      </div>
-                      {errors.hotelName && (
-                        <p className="text-red-500 text-[10px] mt-1">{errors.hotelName.message}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">Hotel GST Number (15 chars) *</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-muted mb-1.5">Hotel Name *</label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
                       <input
-                        {...register("gst")}
-                        placeholder="e.g. 10AAAAA0000A1Z5"
-                        maxLength={15}
-                        className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                        {...register("hotelName")}
+                        placeholder="Hotel trade name"
+                        className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
                       />
-                      {errors.gst && (
-                        <p className="text-red-500 text-[10px] mt-1">{errors.gst.message}</p>
-                      )}
                     </div>
+                    {errors.hotelName && <p className="text-red-500 text-[10px] mt-1">{errors.hotelName.message}</p>}
+                  </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">Hotel Registration No / Details *</label>
+                  <div>
+                    <label className="block text-xs font-semibold text-muted mb-1.5">Hotel GST Number (15 chars) *</label>
+                    <input
+                      {...register("gst")}
+                      placeholder="e.g. 10AAAAA0000A1Z5"
+                      maxLength={15}
+                      className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                    />
+                    {errors.gst && <p className="text-red-500 text-[10px] mt-1">{errors.gst.message}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-muted mb-1.5">Hotel Registration No / Details *</label>
+                    <input
+                      {...register("hotelRegistrationNumber")}
+                      placeholder="Registration ID / Certificate details"
+                      className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                    />
+                    {errors.hotelRegistrationNumber && <p className="text-red-500 text-[10px] mt-1">{errors.hotelRegistrationNumber.message}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-muted mb-1.5">Fire Safety NOC Details *</label>
+                    <input
+                      {...register("fireSafetyNoc")}
+                      placeholder="NOC reference number / validity"
+                      className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                    />
+                    {errors.fireSafetyNoc && <p className="text-red-500 text-[10px] mt-1">{errors.fireSafetyNoc.message}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-muted mb-1.5">CCTV Camera Configuration *</label>
+                    <input
+                      {...register("cctvCamera")}
+                      placeholder="Active CCTV config, count details"
+                      className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                    />
+                    {errors.cctvCamera && <p className="text-red-500 text-[10px] mt-1">{errors.cctvCamera.message}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-muted mb-1.5">Hotel Direct Contact Number *</label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
                       <input
-                        {...register("hotelRegistrationNumber")}
-                        placeholder="Registration ID / Certificate details"
-                        className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                        {...register("phone")}
+                        placeholder="Reception desk phone"
+                        className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
                       />
-                      {errors.hotelRegistrationNumber && (
-                        <p className="text-red-500 text-[10px] mt-1">{errors.hotelRegistrationNumber.message}</p>
-                      )}
                     </div>
+                    {errors.phone && <p className="text-red-500 text-[10px] mt-1">{errors.phone.message}</p>}
+                  </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">Fire Safety NOC Details *</label>
-                      <input
-                        {...register("fireSafetyNoc")}
-                        placeholder="NOC reference number / validity"
-                        className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                      />
-                      {errors.fireSafetyNoc && (
-                        <p className="text-red-500 text-[10px] mt-1">{errors.fireSafetyNoc.message}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">CCTV Camera Configuration *</label>
-                      <input
-                        {...register("cctvCamera")}
-                        placeholder="Active CCTV configuration, count, coverage details"
-                        className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                      />
-                      {errors.cctvCamera && (
-                        <p className="text-red-500 text-[10px] mt-1">{errors.cctvCamera.message}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">Hotel Direct Contact Number *</label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                        <input
-                          {...register("phone")}
-                          placeholder="Reception desk phone"
-                          className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                        />
-                      </div>
-                      {errors.phone && (
-                        <p className="text-red-500 text-[10px] mt-1">{errors.phone.message}</p>
-                      )}
-                    </div>
-
-                    <div className="sm:col-span-2 pt-2">
-                      <label className="block text-xs font-semibold text-muted mb-1.5 flex items-center gap-1.5">
-                        <CreditCard className="w-3.5 h-3.5 text-primary" /> Bank details (for billing settlements) *
-                      </label>
-                      <textarea
-                        {...register("bankDetails")}
-                        rows={3}
-                        placeholder="Account Number: &#10;IFSC Code: &#10;Bank Name: &#10;Account Holder Name: "
-                        className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none resize-none"
-                      />
-                      {errors.bankDetails && (
-                        <p className="text-red-500 text-[10px] mt-1">{errors.bankDetails.message}</p>
-                      )}
-                    </div>
+                  <div className="sm:col-span-2 pt-2">
+                    <label className="block text-xs font-semibold text-muted mb-1.5 flex items-center gap-1.5">
+                      <CreditCard className="w-3.5 h-3.5 text-primary" /> Bank details (for billing settlements) *
+                    </label>
+                    <textarea
+                      {...register("bankDetails")}
+                      rows={3}
+                      placeholder="Account Number: &#10;IFSC Code: &#10;Bank Name: &#10;Account Holder Name: "
+                      className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none resize-none"
+                    />
+                    {errors.bankDetails && <p className="text-red-500 text-[10px] mt-1">{errors.bankDetails.message}</p>}
                   </div>
                 </div>
-              )}
+              </div>
 
               {/* STEP 3: Location & Media Photos */}
-              {currentStep === 3 && (
-                <div className="space-y-6">
-                  {/* Location Info */}
-                  <div className="bg-white rounded-2xl border border-border/50 shadow-sm p-6 space-y-6">
-                    <h3 className="font-heading font-bold text-ink text-base flex items-center gap-2 border-b border-border/40 pb-3">
-                      <MapPin className="w-5 h-5 text-primary" />
-                      Location & Address
-                    </h3>
+              <div className={`space-y-6 ${currentStep === 3 ? 'block' : 'hidden'}`}>
+                <div className="bg-white rounded-2xl border border-border/50 shadow-sm p-6 space-y-6">
+                  <h3 className="font-heading font-bold text-ink text-base flex items-center gap-2 border-b border-border/40 pb-3">
+                    <MapPin className="w-5 h-5 text-primary" /> Location & Address
+                  </h3>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div className="sm:col-span-3">
-                        <label className="block text-xs font-semibold text-muted mb-1.5">Google Maps Link / Coordinates *</label>
-                        <div className="relative">
-                          <Map className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                          <input
-                            {...register("location")}
-                            placeholder="Share Maps share link or Lat/Long coordinates"
-                            className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                          />
-                        </div>
-                        {errors.location && (
-                          <p className="text-red-500 text-[10px] mt-1">{errors.location.message}</p>
-                        )}
-                      </div>
-
-                      <div className="sm:col-span-3">
-                        <label className="block text-xs font-semibold text-muted mb-1.5">Full Address *</label>
-                        <div className="relative">
-                          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                          <input
-                            {...register("hotelAddress")}
-                            placeholder="Street Address, Area"
-                            className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                          />
-                        </div>
-                        {errors.hotelAddress && (
-                          <p className="text-red-500 text-[10px] mt-1">{errors.hotelAddress.message}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-muted mb-1.5">City *</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="sm:col-span-3">
+                      <label className="block text-xs font-semibold text-muted mb-1.5">Google Maps Link / Coordinates *</label>
+                      <div className="relative">
+                        <Map className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
                         <input
-                          {...register("city")}
-                          placeholder="e.g. Patna"
-                          className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                          {...register("location")}
+                          placeholder="Share Maps share link or Lat/Long coordinates"
+                          className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
                         />
-                        {errors.city && (
-                          <p className="text-red-500 text-[10px] mt-1">{errors.city.message}</p>
-                        )}
                       </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-muted mb-1.5">State *</label>
-                        <input
-                          {...register("state")}
-                          placeholder="e.g. Bihar"
-                          className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                        />
-                        {errors.state && (
-                          <p className="text-red-500 text-[10px] mt-1">{errors.state.message}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-muted mb-1.5">Pincode *</label>
-                        <input
-                          {...register("pincode")}
-                          placeholder="e.g. 800001"
-                          className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                        />
-                        {errors.pincode && (
-                          <p className="text-red-500 text-[10px] mt-1">{errors.pincode.message}</p>
-                        )}
-                      </div>
+                      {errors.location && <p className="text-red-500 text-[10px] mt-1">{errors.location.message}</p>}
                     </div>
-                  </div>
 
-                  {/* Media uploads */}
-                  <div className="bg-white rounded-2xl border border-border/50 shadow-sm p-6 space-y-6">
-                    <h3 className="font-heading font-bold text-ink text-base flex items-center gap-2 border-b border-border/40 pb-3">
-                      <Camera className="w-5 h-5 text-primary" />
-                      Hotel Photos (File Uploads)
-                    </h3>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      {/* Room Pic */}
-                      <div>
-                        <label className="block text-xs font-semibold text-muted mb-2">Room Photo *</label>
-                        {watchRoomPic ? (
-                          <div className="relative h-40 border border-border rounded-2xl overflow-hidden bg-surface group">
-                            <img src={watchRoomPic} alt="Room Preview" className="w-full h-full object-cover" />
-                            <button
-                              type="button"
-                              onClick={() => setValue("roomPic", "", { shouldValidate: true })}
-                              className="absolute top-3 right-3 p-1.5 bg-black/60 hover:bg-black/85 text-white rounded-full transition-colors cursor-pointer"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ) : (
-                          <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-border/80 hover:border-primary rounded-2xl bg-surface cursor-pointer transition-all hover:bg-primary/[0.02]">
-                            <ImageIcon className="w-7 h-7 text-muted mb-2" />
-                            <span className="text-[11px] font-bold text-ink">Upload Room Image</span>
-                            <span className="text-[9px] text-muted mt-1">PNG, JPG up to 2MB</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => handleImageUpload(e, "roomPic")}
-                              className="hidden"
-                            />
-                          </label>
-                        )}
-                        {errors.roomPic && (
-                          <p className="text-red-500 text-[10px] mt-1">{errors.roomPic.message}</p>
-                        )}
+                    <div className="sm:col-span-3">
+                      <label className="block text-xs font-semibold text-muted mb-1.5">Full Address *</label>
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                        <input
+                          {...register("hotelAddress")}
+                          placeholder="Street Address, Area"
+                          className="w-full pl-10 pr-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                        />
                       </div>
+                      {errors.hotelAddress && <p className="text-red-500 text-[10px] mt-1">{errors.hotelAddress.message}</p>}
+                    </div>
 
-                      {/* Reception Pic */}
-                      <div>
-                        <label className="block text-xs font-semibold text-muted mb-2">Reception Photo *</label>
-                        {watchReceptionPic ? (
-                          <div className="relative h-40 border border-border rounded-2xl overflow-hidden bg-surface group">
-                            <img src={watchReceptionPic} alt="Reception Preview" className="w-full h-full object-cover" />
-                            <button
-                              type="button"
-                              onClick={() => setValue("receptionPic", "", { shouldValidate: true })}
-                              className="absolute top-3 right-3 p-1.5 bg-black/60 hover:bg-black/85 text-white rounded-full transition-colors cursor-pointer"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ) : (
-                          <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-border/80 hover:border-primary rounded-2xl bg-surface cursor-pointer transition-all hover:bg-primary/[0.02]">
-                            <ImageIcon className="w-7 h-7 text-muted mb-2" />
-                            <span className="text-[11px] font-bold text-ink">Upload Reception Image</span>
-                            <span className="text-[9px] text-muted mt-1">PNG, JPG up to 2MB</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => handleImageUpload(e, "receptionPic")}
-                              className="hidden"
-                            />
-                          </label>
-                        )}
-                        {errors.receptionPic && (
-                          <p className="text-red-500 text-[10px] mt-1">{errors.receptionPic.message}</p>
-                        )}
-                      </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-muted mb-1.5">City *</label>
+                      <input
+                        {...register("city")}
+                        placeholder="e.g. Patna"
+                        className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                      />
+                      {errors.city && <p className="text-red-500 text-[10px] mt-1">{errors.city.message}</p>}
+                    </div>
 
-                      {/* Bathroom Pic */}
-                      <div>
-                        <label className="block text-xs font-semibold text-muted mb-2">Bathroom Photo *</label>
-                        {watchBathroomPic ? (
-                          <div className="relative h-40 border border-border rounded-2xl overflow-hidden bg-surface group">
-                            <img src={watchBathroomPic} alt="Bathroom Preview" className="w-full h-full object-cover" />
-                            <button
-                              type="button"
-                              onClick={() => setValue("bathroomPic", "", { shouldValidate: true })}
-                              className="absolute top-3 right-3 p-1.5 bg-black/60 hover:bg-black/85 text-white rounded-full transition-colors cursor-pointer"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ) : (
-                          <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-border/80 hover:border-primary rounded-2xl bg-surface cursor-pointer transition-all hover:bg-primary/[0.02]">
-                            <ImageIcon className="w-7 h-7 text-muted mb-2" />
-                            <span className="text-[11px] font-bold text-ink">Upload Bathroom Image</span>
-                            <span className="text-[9px] text-muted mt-1">PNG, JPG up to 2MB</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => handleImageUpload(e, "bathroomPic")}
-                              className="hidden"
-                            />
-                          </label>
-                        )}
-                        {errors.bathroomPic && (
-                          <p className="text-red-500 text-[10px] mt-1">{errors.bathroomPic.message}</p>
-                        )}
-                      </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-muted mb-1.5">State *</label>
+                      <input
+                        {...register("state")}
+                        placeholder="e.g. Bihar"
+                        className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                      />
+                      {errors.state && <p className="text-red-500 text-[10px] mt-1">{errors.state.message}</p>}
+                    </div>
 
-                      {/* Interior & Exterior Pic */}
-                      <div>
-                        <label className="block text-xs font-semibold text-muted mb-2">Interior & Exterior Photo *</label>
-                        {watchInteriorExteriorPic ? (
-                          <div className="relative h-40 border border-border rounded-2xl overflow-hidden bg-surface group">
-                            <img src={watchInteriorExteriorPic} alt="Interior/Exterior Preview" className="w-full h-full object-cover" />
-                            <button
-                              type="button"
-                              onClick={() => setValue("interiorExteriorPic", "", { shouldValidate: true })}
-                              className="absolute top-3 right-3 p-1.5 bg-black/60 hover:bg-black/85 text-white rounded-full transition-colors cursor-pointer"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ) : (
-                          <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-border/80 hover:border-primary rounded-2xl bg-surface cursor-pointer transition-all hover:bg-primary/[0.02]">
-                            <ImageIcon className="w-7 h-7 text-muted mb-2" />
-                            <span className="text-[11px] font-bold text-ink">Upload Interior/Exterior Image</span>
-                            <span className="text-[9px] text-muted mt-1">PNG, JPG up to 2MB</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => handleImageUpload(e, "interiorExteriorPic")}
-                              className="hidden"
-                            />
-                          </label>
-                        )}
-                        {errors.interiorExteriorPic && (
-                          <p className="text-red-500 text-[10px] mt-1">{errors.interiorExteriorPic.message}</p>
-                        )}
-                      </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-muted mb-1.5">Pincode *</label>
+                      <input
+                        {...register("pincode")}
+                        placeholder="e.g. 800001"
+                        className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                      />
+                      {errors.pincode && <p className="text-red-500 text-[10px] mt-1">{errors.pincode.message}</p>}
                     </div>
                   </div>
                 </div>
-              )}
+
+                <div className="bg-white rounded-2xl border border-border/50 shadow-sm p-6 space-y-6">
+                  <h3 className="font-heading font-bold text-ink text-base flex items-center gap-2 border-b border-border/40 pb-3">
+                    <Camera className="w-5 h-5 text-primary" /> Hotel Photos
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 gap-6">
+                    {/* Room Pics */}
+                    <div>
+                      <label className="block text-xs font-semibold text-muted mb-2">Room Photos *</label>
+                      <div className="flex flex-wrap gap-4">
+                        {watchRoomPics.map((file: any, idx: number) => (
+                          <div key={idx} className="relative w-32 h-32 border border-border rounded-xl overflow-hidden bg-surface group">
+                            <img src={URL.createObjectURL(file)} alt="Room" className="w-full h-full object-cover" />
+                            <button type="button" onClick={() => removeImage("roomPics", idx)} className="absolute top-2 right-2 p-1 bg-black/60 hover:bg-black/85 text-white rounded-full transition-colors cursor-pointer">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                        <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-border/80 hover:border-primary rounded-xl bg-surface cursor-pointer transition-all">
+                          <ImageIcon className="w-6 h-6 text-muted mb-1" />
+                          <span className="text-[10px] font-bold text-ink text-center">Add Room<br/>Photos</span>
+                          <input type="file" accept="image/*" multiple onChange={(e) => handleMultipleImageUpload(e, "roomPics")} className="hidden" />
+                        </label>
+                      </div>
+                      {errors.roomPics && <p className="text-red-500 text-[10px] mt-1">{(errors.roomPics as any).message}</p>}
+                    </div>
+
+                    {/* Reception Pics */}
+                    <div className="pt-4 border-t border-border/30">
+                      <label className="block text-xs font-semibold text-muted mb-2">Reception Photos *</label>
+                      <div className="flex flex-wrap gap-4">
+                        {watchReceptionPics.map((file: any, idx: number) => (
+                          <div key={idx} className="relative w-32 h-32 border border-border rounded-xl overflow-hidden bg-surface group">
+                            <img src={URL.createObjectURL(file)} alt="Reception" className="w-full h-full object-cover" />
+                            <button type="button" onClick={() => removeImage("receptionPics", idx)} className="absolute top-2 right-2 p-1 bg-black/60 hover:bg-black/85 text-white rounded-full transition-colors cursor-pointer">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                        <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-border/80 hover:border-primary rounded-xl bg-surface cursor-pointer transition-all">
+                          <ImageIcon className="w-6 h-6 text-muted mb-1" />
+                          <span className="text-[10px] font-bold text-ink text-center">Add Reception<br/>Photos</span>
+                          <input type="file" accept="image/*" multiple onChange={(e) => handleMultipleImageUpload(e, "receptionPics")} className="hidden" />
+                        </label>
+                      </div>
+                      {errors.receptionPics && <p className="text-red-500 text-[10px] mt-1">{(errors.receptionPics as any).message}</p>}
+                    </div>
+
+                    {/* Bathroom Pics */}
+                    <div className="pt-4 border-t border-border/30">
+                      <label className="block text-xs font-semibold text-muted mb-2">Bathroom Photos *</label>
+                      <div className="flex flex-wrap gap-4">
+                        {watchBathroomPics.map((file: any, idx: number) => (
+                          <div key={idx} className="relative w-32 h-32 border border-border rounded-xl overflow-hidden bg-surface group">
+                            <img src={URL.createObjectURL(file)} alt="Bathroom" className="w-full h-full object-cover" />
+                            <button type="button" onClick={() => removeImage("bathroomPics", idx)} className="absolute top-2 right-2 p-1 bg-black/60 hover:bg-black/85 text-white rounded-full transition-colors cursor-pointer">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                        <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-border/80 hover:border-primary rounded-xl bg-surface cursor-pointer transition-all">
+                          <ImageIcon className="w-6 h-6 text-muted mb-1" />
+                          <span className="text-[10px] font-bold text-ink text-center">Add Bathroom<br/>Photos</span>
+                          <input type="file" accept="image/*" multiple onChange={(e) => handleMultipleImageUpload(e, "bathroomPics")} className="hidden" />
+                        </label>
+                      </div>
+                      {errors.bathroomPics && <p className="text-red-500 text-[10px] mt-1">{(errors.bathroomPics as any).message}</p>}
+                    </div>
+
+                    {/* Interior/Exterior Pics */}
+                    <div className="pt-4 border-t border-border/30">
+                      <label className="block text-xs font-semibold text-muted mb-2">Interior & Exterior Photos *</label>
+                      <div className="flex flex-wrap gap-4">
+                        {watchInteriorExteriorPics.map((file: any, idx: number) => (
+                          <div key={idx} className="relative w-32 h-32 border border-border rounded-xl overflow-hidden bg-surface group">
+                            <img src={URL.createObjectURL(file)} alt="Interior/Exterior" className="w-full h-full object-cover" />
+                            <button type="button" onClick={() => removeImage("interiorExteriorPics", idx)} className="absolute top-2 right-2 p-1 bg-black/60 hover:bg-black/85 text-white rounded-full transition-colors cursor-pointer">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                        <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-dashed border-border/80 hover:border-primary rounded-xl bg-surface cursor-pointer transition-all">
+                          <ImageIcon className="w-6 h-6 text-muted mb-1" />
+                          <span className="text-[10px] font-bold text-ink text-center">Add Exterior<br/>Photos</span>
+                          <input type="file" accept="image/*" multiple onChange={(e) => handleMultipleImageUpload(e, "interiorExteriorPics")} className="hidden" />
+                        </label>
+                      </div>
+                      {errors.interiorExteriorPics && <p className="text-red-500 text-[10px] mt-1">{(errors.interiorExteriorPics as any).message}</p>}
+                    </div>
+
+                  </div>
+                </div>
+              </div>
 
               {/* Error Message */}
               {status === "error" && (
@@ -659,8 +595,7 @@ export default function HotelRegistrationPage() {
                     onClick={prevStep}
                     className="px-6 py-3.5 border border-border rounded-xl text-xs font-bold text-ink hover:bg-surface transition-colors cursor-pointer flex items-center gap-1.5"
                   >
-                    <ArrowLeft className="w-4 h-4" />
-                    Back
+                    <ArrowLeft className="w-4 h-4" /> Back
                   </button>
                 ) : (
                   <div />
@@ -672,8 +607,7 @@ export default function HotelRegistrationPage() {
                     onClick={nextStep}
                     className="px-6 py-3.5 bg-ink text-white font-bold rounded-xl text-xs hover:bg-ink-light transition-colors cursor-pointer flex items-center gap-1.5"
                   >
-                    Continue
-                    <ArrowRight className="w-4 h-4" />
+                    Continue <ArrowRight className="w-4 h-4" />
                   </button>
                 ) : (
                   <button
@@ -683,13 +617,11 @@ export default function HotelRegistrationPage() {
                   >
                     {status === "loading" ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Submitting...
+                        <Loader2 className="w-4 h-4 animate-spin" /> Submitting...
                       </>
                     ) : (
                       <>
-                        <Send className="w-4 h-4" />
-                        Submit Hotel Application
+                        <Send className="w-4 h-4" /> Submit Hotel Application
                       </>
                     )}
                   </button>
@@ -697,7 +629,6 @@ export default function HotelRegistrationPage() {
               </div>
             </form>
 
-            {/* Already registered */}
             <div className="text-center mt-8 pb-4 border-t border-border/30 pt-6">
               <p className="text-muted text-xs">
                 Already registered hotel partner?{" "}
