@@ -42,7 +42,14 @@ async function getApprovedHotels() {
       next: { revalidate: 60 } // Automatically refreshes cache every 60 seconds
     });
     
-    const result = await res.json();
+    const rawText = await res.text();
+    const firstBrace = rawText.indexOf('{');
+    const lastBrace = rawText.lastIndexOf('}');
+    if (firstBrace === -1 || lastBrace === -1) {
+      throw new Error("No JSON object found in response");
+    }
+    const jsonText = rawText.substring(firstBrace, lastBrace + 1);
+    const result = JSON.parse(jsonText);
     
     if (res.ok && result.status === 'success') {
       // Map through the data to fix the image URLs, add slugs, and append city to location

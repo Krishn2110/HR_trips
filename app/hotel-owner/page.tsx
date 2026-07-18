@@ -79,7 +79,18 @@ export default function HotelOwnerDashboard() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/hotels/get_profile.php?email=${encodeURIComponent(email)}`, {
         cache: "no-store"
       });
-      const result = await response.json();
+      
+      const rawText = await response.text();
+      console.log("RAW PROFILE RESPONSE FROM SERVER:", rawText);
+
+      const firstBrace = rawText.indexOf('{');
+      const lastBrace = rawText.lastIndexOf('}');
+      if (firstBrace === -1 || lastBrace === -1) {
+        throw new Error("No JSON object found in response");
+      }
+      
+      const jsonText = rawText.substring(firstBrace, lastBrace + 1);
+      const result = JSON.parse(jsonText);
 
       if (response.ok && result.status === "success") {
         const reg = result.data;
@@ -160,7 +171,14 @@ export default function HotelOwnerDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, status: newStatus })
       });
-      const result = await response.json();
+      const rawText = await response.text();
+      const firstBrace = rawText.indexOf('{');
+      const lastBrace = rawText.lastIndexOf('}');
+      if (firstBrace === -1 || lastBrace === -1) {
+        throw new Error("No JSON object found in response");
+      }
+      const jsonText = rawText.substring(firstBrace, lastBrace + 1);
+      const result = JSON.parse(jsonText);
 
       if (response.ok && result.status === "success") {
         setBookings(prev => prev.map(b => b.id === id ? { ...b, booking_status: newStatus as any } : b));
@@ -211,7 +229,14 @@ export default function HotelOwnerDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-      const result = await response.json();
+      const rawText = await response.text();
+      const firstBrace = rawText.indexOf('{');
+      const lastBrace = rawText.lastIndexOf('}');
+      if (firstBrace === -1 || lastBrace === -1) {
+        throw new Error("No JSON object found in response");
+      }
+      const jsonText = rawText.substring(firstBrace, lastBrace + 1);
+      const result = JSON.parse(jsonText);
 
       if (response.ok && result.status === "success") {
         setRegistration({ ...registration, ...payload } as any);

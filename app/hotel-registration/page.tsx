@@ -87,7 +87,7 @@ export default function HotelRegistrationPage() {
     if (currentStep === 1) {
       fieldsToValidate = ["ownerName", "ownerContact", "propertyManagerName", "propertyManagerPhone", "email", "password"];
     } else if (currentStep === 2) {
-      fieldsToValidate = ["hotelName", "gst", "hotelRegistrationNumber", "fireSafetyNoc", "cctvCamera", "phone", "bankDetails"];
+      fieldsToValidate = ["hotelName", "gst", "hotelRegistrationNumber", "fireSafetyNoc", "cctvCamera", "phone", "bankName", "bankHolder", "bankAccount", "bankIfsc"];
     }
     
     const isValid = await trigger(fieldsToValidate as any);
@@ -105,7 +105,7 @@ export default function HotelRegistrationPage() {
     console.error("Form Validation Failed! Missing/Invalid Fields:", validationErrors);
     
     const step1Fields = ["ownerName", "ownerContact", "propertyManagerName", "propertyManagerPhone", "email", "password"];
-    const step2Fields = ["hotelName", "gst", "hotelRegistrationNumber", "fireSafetyNoc", "cctvCamera", "phone", "bankDetails"];
+    const step2Fields = ["hotelName", "gst", "hotelRegistrationNumber", "fireSafetyNoc", "cctvCamera", "phone", "bankName", "bankHolder", "bankAccount", "bankIfsc"];
     
     if (step1Fields.some(field => validationErrors[field])) {
       setCurrentStep(1);
@@ -125,13 +125,16 @@ export default function HotelRegistrationPage() {
     
     try {
       const formData = new FormData();
+      
+      const bankDetailsCombined = `Bank Name: ${data.bankName}\r\nPrimary Account Holder: ${data.bankHolder}\r\nAccount Number: ${data.bankAccount}\r\nIFSC Code: ${data.bankIfsc}`;
 
       Object.keys(data).forEach((key) => {
-        if (!['roomPics', 'receptionPics', 'bathroomPics', 'interiorExteriorPics'].includes(key)) {
+        if (!['roomPics', 'receptionPics', 'bathroomPics', 'interiorExteriorPics', 'bankName', 'bankHolder', 'bankAccount', 'bankIfsc'].includes(key)) {
           // @ts-ignore
           formData.append(key, data[key]);
         }
       });
+      formData.append("bankDetails", bankDetailsCombined);
 
       // Append files for PHP arrays
       data.roomPics.forEach((file: File) => formData.append("roomPics[]", file));
@@ -405,17 +408,51 @@ export default function HotelRegistrationPage() {
                     {errors.phone && <p className="text-red-500 text-[10px] mt-1">{errors.phone.message}</p>}
                   </div>
 
-                  <div className="sm:col-span-2 pt-2">
-                    <label className="block text-xs font-semibold text-muted mb-1.5 flex items-center gap-1.5">
-                      <CreditCard className="w-3.5 h-3.5 text-primary" /> Bank details (for billing settlements) *
+                  <div className="sm:col-span-2 pt-2 border-t border-border/30 mt-4">
+                    <label className="block text-xs font-bold text-ink mb-3 flex items-center gap-1.5">
+                      <CreditCard className="w-4 h-4 text-primary" /> Settlement Bank Details *
                     </label>
-                    <textarea
-                      {...register("bankDetails")}
-                      rows={3}
-                      placeholder="Account Number: &#10;IFSC Code: &#10;Bank Name: &#10;Account Holder Name: "
-                      className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none resize-none"
-                    />
-                    {errors.bankDetails && <p className="text-red-500 text-[10px] mt-1">{errors.bankDetails.message}</p>}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[11px] text-muted mb-1 font-medium">Bank Name</label>
+                        <input
+                          {...register("bankName")}
+                          placeholder="e.g. Axis Bank"
+                          className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                        />
+                        {errors.bankName && <p className="text-red-500 text-[10px] mt-1">{errors.bankName.message}</p>}
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] text-muted mb-1 font-medium">Account Holder Name</label>
+                        <input
+                          {...register("bankHolder")}
+                          placeholder="Name in bank account"
+                          className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                        />
+                        {errors.bankHolder && <p className="text-red-500 text-[10px] mt-1">{errors.bankHolder.message}</p>}
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] text-muted mb-1 font-medium">Account Number</label>
+                        <input
+                          {...register("bankAccount")}
+                          placeholder="e.g. 9180101135..."
+                          className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                        />
+                        {errors.bankAccount && <p className="text-red-500 text-[10px] mt-1">{errors.bankAccount.message}</p>}
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] text-muted mb-1 font-medium">IFSC Code</label>
+                        <input
+                          {...register("bankIfsc")}
+                          placeholder="e.g. UTIB0002977"
+                          className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                        />
+                        {errors.bankIfsc && <p className="text-red-500 text-[10px] mt-1">{errors.bankIfsc.message}</p>}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -83,7 +83,15 @@ export default function AdminHotelRegistrationsPage() {
         headers: { "Content-Type": "application/json" },
         cache: "no-store"
       });
-      const result = await response.json();
+      
+      const rawText = await response.text();
+      const firstBrace = rawText.indexOf('{');
+      const lastBrace = rawText.lastIndexOf('}');
+      if (firstBrace === -1 || lastBrace === -1) {
+        throw new Error("No JSON object found in response");
+      }
+      const jsonText = rawText.substring(firstBrace, lastBrace + 1);
+      const result = JSON.parse(jsonText);
       
       if (response.ok && result.status === "success") {
         setRegistrations(result.data);
@@ -115,7 +123,14 @@ export default function AdminHotelRegistrationsPage() {
         body: JSON.stringify({ id, status: newStatus })
       });
       
-      const result = await response.json();
+      const rawText = await response.text();
+      const firstBrace = rawText.indexOf('{');
+      const lastBrace = rawText.lastIndexOf('}');
+      if (firstBrace === -1 || lastBrace === -1) {
+        throw new Error("No JSON object found in response");
+      }
+      const jsonText = rawText.substring(firstBrace, lastBrace + 1);
+      const result = JSON.parse(jsonText);
 
       if (response.ok && result.status === "success") {
         setRegistrations((prev) =>
@@ -144,7 +159,14 @@ export default function AdminHotelRegistrationsPage() {
         body: JSON.stringify({ id })
       });
       
-      const result = await response.json();
+      const rawText = await response.text();
+      const firstBrace = rawText.indexOf('{');
+      const lastBrace = rawText.lastIndexOf('}');
+      if (firstBrace === -1 || lastBrace === -1) {
+        throw new Error("No JSON object found in response");
+      }
+      const jsonText = rawText.substring(firstBrace, lastBrace + 1);
+      const result = JSON.parse(jsonText);
 
       if (response.ok && result.status === "success") {
         setRegistrations((prev) => prev.filter((r) => r.id !== id));

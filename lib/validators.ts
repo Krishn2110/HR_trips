@@ -146,9 +146,18 @@ export const hotelRegistrationSchema = z.object({
   cctvCamera: z
     .string()
     .min(2, "CCTV configuration details are required"),
-  bankDetails: z
+  bankName: z
     .string()
-    .min(10, "Specify full bank details (A/C, IFSC, Bank Name)"),
+    .min(2, "Bank name must be at least 2 characters"),
+  bankHolder: z
+    .string()
+    .min(2, "Account holder name must be at least 2 characters"),
+  bankAccount: z
+    .string()
+    .min(5, "Account number must be at least 5 digits"),
+  bankIfsc: z
+    .string()
+    .min(4, "IFSC code is required"),
   
   // Pluralized array fields for multiple native file uploads
   roomPics: z

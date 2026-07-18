@@ -36,7 +36,14 @@ async function fetchHotelBySlug(slug: string) {
       next: { revalidate: 0 } // Change to 60 in production for caching
     });
     
-    const result = await res.json();
+    const rawText = await res.text();
+    const firstBrace = rawText.indexOf('{');
+    const lastBrace = rawText.lastIndexOf('}');
+    if (firstBrace === -1 || lastBrace === -1) {
+      throw new Error("No JSON object found in response");
+    }
+    const jsonText = rawText.substring(firstBrace, lastBrace + 1);
+    const result = JSON.parse(jsonText);
     
     if (res.ok && result.status === 'success') {
       const h = result.data;

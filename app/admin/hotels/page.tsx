@@ -92,7 +92,14 @@ export default function AdminHotelsPage() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/hotels/list_approved.php`, {
         cache: "no-store"
       });
-      const result = await response.json();
+      const rawText = await response.text();
+      const firstBrace = rawText.indexOf('{');
+      const lastBrace = rawText.lastIndexOf('}');
+      if (firstBrace === -1 || lastBrace === -1) {
+        throw new Error("No JSON object found in response");
+      }
+      const jsonText = rawText.substring(firstBrace, lastBrace + 1);
+      const result = JSON.parse(jsonText);
       if (response.ok && result.status === "success") {
         setHotels(result.data);
       }
