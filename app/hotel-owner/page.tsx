@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import type { HotelRegistration, RoomType } from "@/lib/types";
 import {
   Building2, Clock, CheckCircle, XCircle, Mail, Phone, MapPin, Star,
   DoorOpen, Users, Calendar, IndianRupee, TrendingUp, Settings, Plus,
-  Trash2, Edit3, LogOut, Loader2, X, CheckCircle2
+  Trash2, Edit3, LogOut, Loader2, X, CheckCircle2, UploadCloud, Image as ImageIcon
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -38,6 +38,19 @@ interface HotelBooking {
   created_at: string;
 }
 
+// Helper to construct the full image URL safely
+const getImageUrl = (path: string) => {
+  if (!path) return "";
+  if (path.startsWith("http")) return path; 
+  let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost/hr/api";
+  apiUrl = apiUrl.replace(/\/$/, ""); 
+  if (path.startsWith('/api') && apiUrl.endsWith('/api')) {
+    apiUrl = apiUrl.substring(0, apiUrl.length - 4);
+  }
+  const safePath = path.startsWith("/") ? path : `/${path}`;
+  return `${apiUrl}${safePath}`;
+};
+
 export default function HotelOwnerDashboard() {
   const router = useRouter();
   const [registration, setRegistration] = useState<HotelRegistration | null>(null);
@@ -58,6 +71,7 @@ export default function HotelOwnerDashboard() {
   // Rooms inventory form state
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
+  const [isSavingRoom, setIsSavingRoom] = useState(false);
   const [editingRoomIndex, setEditingRoomIndex] = useState<number | null>(null);
   const [roomName, setRoomName] = useState(ROOM_CATEGORIES[0]);
   const [roomPrice, setRoomPrice] = useState(1500);
@@ -65,6 +79,11 @@ export default function HotelOwnerDashboard() {
   const [roomMaxGuests, setRoomMaxGuests] = useState(2);
   const [roomDesc, setRoomDesc] = useState("");
   const [roomImage, setRoomImage] = useState("");
+  
+  // Image Upload State for Rooms
+  const [roomImageFile, setRoomImageFile] = useState<File | null>(null);
+  const [roomImagePreview, setRoomImagePreview] = useState<string | null>(null);
+  const roomFileInputRef = useRef<HTMLInputElement>(null);
 
   // --- API: FETCH PROFILE DATA ---
   const fetchReg = async () => {
@@ -75,19 +94,14 @@ export default function HotelOwnerDashboard() {
     }
 
     try {
-      console.log("Fetching profile for email:", email);
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/hotels/get_profile.php?email=${encodeURIComponent(email)}`, {
         cache: "no-store"
       });
       
       const rawText = await response.text();
-      console.log("RAW PROFILE RESPONSE FROM SERVER:", rawText);
-
       const firstBrace = rawText.indexOf('{');
       const lastBrace = rawText.lastIndexOf('}');
-      if (firstBrace === -1 || lastBrace === -1) {
-        throw new Error("No JSON object found in response");
-      }
+      if (firstBrace === -1 || lastBrace === -1) throw new Error("No JSON object found in response");
       
       const jsonText = rawText.substring(firstBrace, lastBrace + 1);
       const result = JSON.parse(jsonText);
@@ -102,14 +116,8 @@ export default function HotelOwnerDashboard() {
         setSelectedAmenities(reg.amenities || []);
         setRoomTypes(reg.roomTypes || []);
 
-        console.log("Hotel Profile Loaded. Status:", reg.status, "ID:", reg.id);
-
-        // If approved, fetch their specific bookings
         if (reg.status?.toLowerCase() === 'approved' && reg.id) {
-          console.log("Triggering fetchOwnerBookings...");
           fetchOwnerBookings(reg.id);
-        } else {
-          console.log("Hotel is not approved or missing ID. Skipping bookings fetch.");
         }
       }
     } catch (e) {
@@ -119,42 +127,30 @@ export default function HotelOwnerDashboard() {
     }
   };
 
-  // --- API: FETCH OWNER BOOKINGS (BULLETPROOF DEBUGGING) ---
+  // --- API: FETCH OWNER BOOKINGS ---
   const fetchOwnerBookings = async (hotelId: string | number) => {
     if (!hotelId) return;
-    
     setIsBookingsLoading(true);
     try {
       const url = `${process.env.NEXT_PUBLIC_API_URL}/hotel-bookings/owner_list.php?hotel_id=${hotelId}`;
-      console.log("Fetching bookings from URL:", url);
-      
       const response = await fetch(url, { cache: "no-store" });
-      
-      // 1. READ AS TEXT FIRST (This catches PHP Errors breaking the JSON)
       const rawText = await response.text();
-      console.log("RAW RESPONSE FROM SERVER:", rawText);
       
       let result;
       try {
-        // 2. ATTEMPT TO PARSE
         result = JSON.parse(rawText);
       } catch (parseError) {
-        console.error("FATAL ERROR: The server did not return valid JSON. Look at the RAW RESPONSE above to fix your PHP code.");
         setBookings([]);
         setIsBookingsLoading(false);
         return;
       }
 
-      console.log("Successfully parsed JSON:", result);
-
       if (response.ok && result.status === "success") {
         setBookings(Array.isArray(result.data) ? result.data : []);
       } else {
-        console.error("API returned failure status:", result);
         setBookings([]);
       }
     } catch (e) {
-      console.error("Network or Fetch Error:", e);
       setBookings([]);
     } finally {
       setIsBookingsLoading(false);
@@ -174,9 +170,8 @@ export default function HotelOwnerDashboard() {
       const rawText = await response.text();
       const firstBrace = rawText.indexOf('{');
       const lastBrace = rawText.lastIndexOf('}');
-      if (firstBrace === -1 || lastBrace === -1) {
-        throw new Error("No JSON object found in response");
-      }
+      if (firstBrace === -1 || lastBrace === -1) throw new Error("No JSON object found in response");
+      
       const jsonText = rawText.substring(firstBrace, lastBrace + 1);
       const result = JSON.parse(jsonText);
 
@@ -195,10 +190,7 @@ export default function HotelOwnerDashboard() {
   }, []);
 
   const handleLogout = () => {
-    sessionStorage.removeItem("hotelOwnerEmail");
-    sessionStorage.removeItem("hotelOwnerLoggedIn");
-    sessionStorage.removeItem("hotelOwnerId");
-    sessionStorage.removeItem("hotelStatus");
+    sessionStorage.clear();
     router.push("/hotel-owner/login");
   };
 
@@ -232,9 +224,8 @@ export default function HotelOwnerDashboard() {
       const rawText = await response.text();
       const firstBrace = rawText.indexOf('{');
       const lastBrace = rawText.lastIndexOf('}');
-      if (firstBrace === -1 || lastBrace === -1) {
-        throw new Error("No JSON object found in response");
-      }
+      if (firstBrace === -1 || lastBrace === -1) throw new Error("No JSON object found in response");
+      
       const jsonText = rawText.substring(firstBrace, lastBrace + 1);
       const result = JSON.parse(jsonText);
 
@@ -258,6 +249,8 @@ export default function HotelOwnerDashboard() {
     setRoomMaxGuests(2);
     setRoomDesc("");
     setRoomImage("");
+    setRoomImageFile(null);
+    setRoomImagePreview(null);
     setIsRoomModalOpen(true);
   };
 
@@ -269,8 +262,18 @@ export default function HotelOwnerDashboard() {
     setRoomCount(room.count || 1);
     setRoomMaxGuests(room.maxGuests);
     setRoomDesc(room.description);
-    setRoomImage(room.image);
+    setRoomImage(room.image || "");
+    setRoomImageFile(null);
+    setRoomImagePreview(room.image ? getImageUrl(room.image) : null);
     setIsRoomModalOpen(true);
+  };
+
+  const handleRoomFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setRoomImageFile(file);
+      setRoomImagePreview(URL.createObjectURL(file));
+    }
   };
 
   const handleSaveRoomType = async (e: React.FormEvent) => {
@@ -283,13 +286,40 @@ export default function HotelOwnerDashboard() {
       return;
     }
     
+    setIsSavingRoom(true);
+    let finalImageUrl = roomImage;
+
+    // Upload the image first if a new file was selected
+    if (roomImageFile) {
+      const formData = new FormData();
+      formData.append("image", roomImageFile);
+      try {
+        const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/hotels/upload_room_image.php`, {
+          method: "POST",
+          body: formData
+        });
+        const uploadData = await uploadRes.json();
+        if (uploadData.status === "success") {
+          finalImageUrl = uploadData.data.url;
+        } else {
+          alert("Failed to upload image. " + uploadData.message);
+          setIsSavingRoom(false);
+          return;
+        }
+      } catch (err) {
+        alert("Error uploading image. Please check your connection.");
+        setIsSavingRoom(false);
+        return;
+      }
+    }
+    
     const newRoom = {
       name: roomName,
       description: roomDesc,
       pricePerNight: Number(roomPrice),
       count: Number(roomCount),
       maxGuests: Number(roomMaxGuests),
-      image: roomImage || "https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=800&q=80",
+      image: finalImageUrl || "https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=800&q=80",
     };
 
     let updatedRooms = [...roomTypes];
@@ -324,6 +354,8 @@ export default function HotelOwnerDashboard() {
       }
     } catch (err) {
       alert("Error saving room category");
+    } finally {
+      setIsSavingRoom(false);
     }
   };
 
@@ -405,7 +437,6 @@ export default function HotelOwnerDashboard() {
   );
 
   const renderApprovedStatus = () => {
-    // Dynamically calculate statistics from the real bookings data
     const totalBookings = bookings.length;
     const activeGuests = bookings.filter(b => b.booking_status === "checked_in").reduce((acc, curr) => acc + Number(curr.adults) + Number(curr.children), 0);
     const confirmedRevenue = bookings.filter(b => ["confirmed", "checked_in", "checked_out"].includes(b.booking_status)).reduce((acc, curr) => acc + Number(curr.total_amount), 0);
@@ -659,7 +690,7 @@ export default function HotelOwnerDashboard() {
                   {roomTypes.map((room, idx) => (
                     <div key={idx} className="border border-border/50 rounded-2xl overflow-hidden shadow-sm bg-white flex flex-col sm:flex-row">
                       <div className="relative w-full sm:w-1/3 h-32 sm:h-auto bg-surface">
-                        <img src={room.image} alt={room.name} className="w-full h-full object-cover" />
+                        <img src={getImageUrl(room.image)} alt={room.name} className="w-full h-full object-cover" />
                       </div>
                       <div className="p-5 flex-1 flex flex-col justify-between">
                         <div>
@@ -696,6 +727,39 @@ export default function HotelOwnerDashboard() {
                   </div>
 
                   <form onSubmit={handleSaveRoomType} className="p-6 space-y-4 text-xs">
+                    
+                    {/* IMAGE UPLOAD SECTION */}
+                    <div className="col-span-2">
+                      <label className="block text-xs font-semibold text-muted mb-1.5">Room Category Image</label>
+                      <div className="flex items-center gap-4">
+                        <div className="w-32 h-20 bg-surface rounded-xl border border-border/50 overflow-hidden flex-shrink-0 flex items-center justify-center relative">
+                          {roomImagePreview ? (
+                            <img src={roomImagePreview} alt="Preview" className="w-full h-full object-cover" />
+                          ) : (
+                            <ImageIcon className="w-6 h-6 text-muted/50" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            ref={roomFileInputRef}
+                            onChange={handleRoomFileChange}
+                            className="hidden" 
+                          />
+                          <button 
+                            type="button"
+                            onClick={() => roomFileInputRef.current?.click()}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-surface hover:bg-border/50 text-ink border border-border rounded-xl text-xs font-semibold cursor-pointer transition-colors"
+                          >
+                            <UploadCloud className="w-4 h-4" />
+                            {roomImagePreview ? "Change Image" : "Upload Image"}
+                          </button>
+                          <p className="text-[10px] text-muted mt-1.5">Recommended: 800x600px JPG or PNG.</p>
+                        </div>
+                      </div>
+                    </div>
+
                     <div>
                       <label className="block text-xs font-semibold text-muted mb-1.5">Category Name *</label>
                       <select value={roomName} onChange={(e) => setRoomName(e.target.value)} className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none cursor-pointer" required>
@@ -715,13 +779,9 @@ export default function HotelOwnerDashboard() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
+                      <div className="col-span-2">
                         <label className="block text-xs font-semibold text-muted mb-1.5">Max Guests Cap *</label>
                         <input type="number" min={1} max={10} value={roomMaxGuests} onChange={(e) => setRoomMaxGuests(Number(e.target.value))} className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none" required />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="block text-xs font-semibold text-muted mb-1.5">Room Category Image URL</label>
-                        <input type="url" value={roomImage} onChange={(e) => setRoomImage(e.target.value)} placeholder="https://images.unsplash.com/photo-..." className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none" />
                       </div>
                     </div>
 
@@ -731,8 +791,11 @@ export default function HotelOwnerDashboard() {
                     </div>
 
                     <div className="flex gap-3 pt-3">
-                      <button type="button" onClick={() => setIsRoomModalOpen(false)} className="flex-1 py-3 border border-border rounded-xl text-xs font-bold text-ink hover:bg-surface cursor-pointer transition-colors">Cancel</button>
-                      <button type="submit" className="flex-1 py-3 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl text-xs cursor-pointer shadow-md transition-colors">Save Category</button>
+                      <button type="button" disabled={isSavingRoom} onClick={() => setIsRoomModalOpen(false)} className="flex-1 py-3 border border-border rounded-xl text-xs font-bold text-ink hover:bg-surface cursor-pointer transition-colors disabled:opacity-50">Cancel</button>
+                      <button type="submit" disabled={isSavingRoom} className="flex-1 py-3 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl text-xs cursor-pointer shadow-md transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                        {isSavingRoom ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                        {isSavingRoom ? "Saving..." : "Save Category"}
+                      </button>
                     </div>
                   </form>
                 </div>
