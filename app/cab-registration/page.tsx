@@ -217,23 +217,31 @@ export default function CabRegistrationPage() {
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/30" />
         </div>
         <div className="container-wide relative z-10 pb-8">
-          <h1 className="font-heading text-3xl lg:text-4xl font-bold text-white mb-1">
+          <h1
+            style={{ color: "#ffffff" }}
+            className="font-heading text-3xl lg:text-4xl font-bold !text-white mb-1"
+          >
             Register Your Cab / Vehicle
           </h1>
-          <p className="text-sm lg:text-base text-white/80">
+          <p
+            style={{ color: "rgba(255, 255, 255, 0.85)" }}
+            className="text-sm lg:text-base !text-white/85"
+          >
             Partner with HR Trips as an authorized cab operator and start earning
           </p>
         </div>
       </div>
 
-      <Breadcrumbs
-        items={[
-          { label: "Cab Services", href: "/cab-services" },
-          { label: "Cab Owner Registration" },
-        ]}
-      />
+      <div className="container-wide pt-4 pb-2">
+        <Breadcrumbs
+          items={[
+            { label: "Cab Services", href: "/cab-services" },
+            { label: "Cab Owner Registration" },
+          ]}
+        />
+      </div>
 
-      <section className="section-padding bg-surface">
+      <section className="section-padding bg-surface pt-6 pb-28 sm:pb-36">
         <div className="container-wide max-w-4xl mx-auto">
           {/* SUCCESS MESSAGE STATE */}
           {status === "success" ? (
@@ -855,12 +863,12 @@ export default function CabRegistrationPage() {
               </div>
 
               {/* NAVIGATION CONTROL BUTTONS */}
-              <div className="flex items-center justify-between pt-2">
+              <div className="mt-8 p-4 sm:p-6 bg-white border border-border/50 rounded-2xl shadow-sm flex items-center justify-between">
                 {currentStep > 1 ? (
                   <button
                     type="button"
                     onClick={prevStep}
-                    className="px-6 py-3 border border-border text-ink font-semibold rounded-xl text-xs hover:bg-white cursor-pointer transition-colors flex items-center gap-2"
+                    className="px-6 py-3 border border-border text-ink font-semibold rounded-xl text-xs hover:bg-surface cursor-pointer transition-colors flex items-center gap-2"
                   >
                     <ArrowLeft className="w-4 h-4" /> Previous Step
                   </button>
@@ -872,7 +880,7 @@ export default function CabRegistrationPage() {
                   <button
                     type="button"
                     onClick={nextStep}
-                    className="px-6 py-3 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl text-xs cursor-pointer shadow-lg shadow-primary/20 transition-all flex items-center gap-2"
+                    className="px-6 py-3.5 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl text-xs cursor-pointer shadow-lg shadow-primary/20 transition-all flex items-center gap-2"
                   >
                     Next Step <ArrowRight className="w-4 h-4" />
                   </button>

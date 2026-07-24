@@ -20,10 +20,16 @@ export default function CabServicesPage() {
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/30" />
         </div>
         <div className="container-wide relative z-10 pb-8">
-          <h1 className="font-heading text-3xl lg:text-4xl font-bold text-white mb-1">
+          <h1
+            style={{ color: "#ffffff" }}
+            className="font-heading text-3xl lg:text-4xl font-bold !text-white mb-1"
+          >
             Cab Services & Partner Network
           </h1>
-          <p className="text-sm lg:text-base text-white/80">
+          <p
+            style={{ color: "rgba(255, 255, 255, 0.85)" }}
+            className="text-sm lg:text-base !text-white/85"
+          >
             Book premium rides or register your cab fleet with HR Trips
           </p>
         </div>
@@ -43,10 +49,16 @@ export default function CabServicesPage() {
             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/20 border border-primary/30 rounded-full text-xs font-bold text-primary">
               <Car className="w-3.5 h-3.5" /> CAB OWNER PARTNER PROGRAM
             </span>
-            <h2 className="font-heading font-black text-2xl sm:text-3xl text-white">
+            <h2
+              style={{ color: "#ffffff" }}
+              className="font-heading font-black text-2xl sm:text-3xl !text-white"
+            >
               Own a Cab or Taxi Fleet? Register & Drive with HR Trips
             </h2>
-            <p className="text-white/70 text-xs sm:text-sm leading-relaxed">
+            <p
+              style={{ color: "rgba(255, 255, 255, 0.85)" }}
+              className="!text-white/85 text-xs sm:text-sm leading-relaxed"
+            >
               Join our network of verified cab operators. Register your vehicle details (Cab No, Engine/Chassis No, Insurance, Permit, DL, PUC, Photos & Bank info) for quick admin verification and receive steady trip bookings.
             </p>
 
