@@ -13,6 +13,7 @@ import type {
   TicketOption,
   ManpowerOption,
   HotelRegistration,
+  CabRegistration,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
@@ -1766,3 +1767,76 @@ export async function updateHotelRegistration(
   saveLocalHotelRegistrations(regs);
   return true;
 }
+
+// ── Cab Registrations (Local & Remote Fallback) ────────────────
+const CAB_REG_KEY = "hr_trips_cab_registrations";
+
+export function getLocalCabRegistrations(): CabRegistration[] {
+  if (!isBrowser) return [];
+  const data = localStorage.getItem(CAB_REG_KEY);
+  if (!data) return [];
+  try {
+    return JSON.parse(data);
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalCabRegistrations(regs: CabRegistration[]) {
+  if (isBrowser) {
+    localStorage.setItem(CAB_REG_KEY, JSON.stringify(regs));
+  }
+}
+
+export async function getCabRegistrations(): Promise<CabRegistration[]> {
+  return getLocalCabRegistrations();
+}
+
+export async function submitCabRegistration(
+  data: Omit<CabRegistration, "id" | "status" | "createdAt">
+): Promise<CabRegistration> {
+  const regs = getLocalCabRegistrations();
+
+  const exists = regs.find(r => r.email === data.email);
+  if (exists) {
+    throw new Error("A cab is already registered with this email address.");
+  }
+
+  const newReg: CabRegistration = {
+    ...data,
+    id: `cabreg-${Math.random().toString(36).substr(2, 9)}`,
+    status: "Pending",
+    createdAt: new Date().toISOString(),
+  };
+  regs.push(newReg);
+  saveLocalCabRegistrations(regs);
+  return newReg;
+}
+
+export async function updateCabRegistrationStatus(
+  id: string,
+  status: "Pending" | "Approved" | "Rejected"
+): Promise<boolean> {
+  const regs = getLocalCabRegistrations();
+  const index = regs.findIndex(r => r.id === id);
+  if (index === -1) return false;
+  regs[index].status = status;
+  saveLocalCabRegistrations(regs);
+  return true;
+}
+
+export async function deleteCabRegistration(id: string): Promise<boolean> {
+  const regs = getLocalCabRegistrations();
+  const filtered = regs.filter(r => r.id !== id);
+  if (regs.length === filtered.length) return false;
+  saveLocalCabRegistrations(filtered);
+  return true;
+}
+
+export async function getCabRegistrationByEmail(
+  email: string
+): Promise<CabRegistration | null> {
+  const regs = getLocalCabRegistrations();
+  return regs.find(r => r.email === email) || null;
+}
+

@@ -242,3 +242,47 @@ export interface HotelRegistration {
   amenities?: string[];
   roomTypes?: RoomType[];
 }
+
+export interface CabRegistration {
+  id: string;
+  // Cab Details
+  cabName: string;
+  cabNo: string;
+  engineNo: string;
+  chassisNo: string;
+  insurance: string;
+  fitness: string;
+  permit: string;
+  drivingLicenceNo: string;
+  fireSafety: string;
+  cabType: "Commercial" | "Private";
+  // Photos / Uploads
+  cabPic: string;
+  interiorPic: string;
+  rcPic: string;
+  dlPic: string;
+  insurancePic: string;
+  permitPic: string;
+  pucPic: string;
+  // Owner Details
+  ownerName: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+  contactNo: string;
+  email: string;
+  password: string;
+  // Bank Details
+  accountNo: string;
+  ifscCode: string;
+  bankName: string;
+  // Driver Details
+  driverName: string;
+  driverContactNo: string;
+  driverDlNo: string;
+  // Status
+  status: "Pending" | "Approved" | "Rejected";
+  createdAt: string;
+}
+

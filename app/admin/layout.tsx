@@ -104,6 +104,11 @@ export default function AdminLayout({
       icon: Building2,
     },
     {
+      label: "Cab Registrations",
+      href: "/admin/cab-registrations",
+      icon: Car,
+    },
+    {
       label: "Enquiries",
       href: "/admin/enquiries",
       icon: MessageSquare,

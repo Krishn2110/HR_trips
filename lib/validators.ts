@@ -189,3 +189,106 @@ export const hotelRegistrationSchema = z.object({
 });
 
 export type HotelRegistrationFormData = z.infer<typeof hotelRegistrationSchema>;
+
+// ── Cab Owner Registration Schema ───────────────────────────
+export const cabRegistrationSchema = z.object({
+  // Cab Details
+  cabName: z
+    .string()
+    .min(2, "Cab name must be at least 2 characters (e.g. Toyota Innova)"),
+  cabNo: z
+    .string()
+    .min(4, "Vehicle registration number required (e.g. BR 01 AB 1234)"),
+  engineNo: z
+    .string()
+    .min(3, "Engine number is required"),
+  chassisNo: z
+    .string()
+    .min(3, "Chassis number is required"),
+  insurance: z
+    .string()
+    .min(2, "Insurance details / policy number required"),
+  fitness: z
+    .string()
+    .min(2, "Fitness certificate details required"),
+  permit: z
+    .string()
+    .min(2, "Permit details / validity required"),
+  drivingLicenceNo: z
+    .string()
+    .min(4, "Driving licence number required"),
+  fireSafety: z
+    .string()
+    .min(2, "Fire safety equipment status required"),
+  cabType: z.enum(["Commercial", "Private"]),
+
+  // Photos & Document Uploads (Data URLs or File Uploads)
+  cabPic: z
+    .string()
+    .min(1, "Cab photo is required"),
+  interiorPic: z
+    .string()
+    .min(1, "Interior photo is required"),
+  rcPic: z
+    .string()
+    .min(1, "Registration Certificate (RC) image is required"),
+  dlPic: z
+    .string()
+    .min(1, "Driving Licence image is required"),
+  insurancePic: z
+    .string()
+    .min(1, "Insurance document image is required"),
+  permitPic: z
+    .string()
+    .min(1, "Permit document image is required"),
+  pucPic: z
+    .string()
+    .min(1, "Pollution (PUC) certificate image is required"),
+
+  // Owner Details
+  ownerName: z
+    .string()
+    .min(2, "Owner name must be at least 2 characters"),
+  address: z
+    .string()
+    .min(5, "Address must be at least 5 characters"),
+  city: z
+    .string()
+    .min(2, "City is required"),
+  state: z
+    .string()
+    .min(2, "State is required"),
+  pincode: z
+    .string()
+    .min(4, "Enter a valid pincode"),
+  contactNo: z
+    .string()
+    .min(10, "Enter a valid contact phone number")
+    .max(15, "Contact number is too long"),
+  email: z.string().email("Enter a valid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+
+  // Bank Details
+  bankName: z
+    .string()
+    .min(2, "Bank name is required"),
+  accountNo: z
+    .string()
+    .min(5, "Account number must be at least 5 digits"),
+  ifscCode: z
+    .string()
+    .min(4, "IFSC code is required"),
+
+  // Driver Details
+  driverName: z
+    .string()
+    .min(2, "Driver name is required"),
+  driverContactNo: z
+    .string()
+    .min(10, "Valid driver contact number is required"),
+  driverDlNo: z
+    .string()
+    .min(4, "Driver DL number is required"),
+});
+
+export type CabRegistrationFormData = z.infer<typeof cabRegistrationSchema>;
