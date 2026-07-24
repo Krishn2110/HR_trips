@@ -1,13 +1,9 @@
-import type { Metadata } from "next";
+"use client";
+
 import Link from "next/link";
 import { Car, ShieldCheck, CheckCircle2, UserCheck, ArrowRight, Phone, MessageCircle } from "lucide-react";
 import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import { CONTACT } from "@/lib/constants";
-
-export const metadata: Metadata = {
-  title: "Cab Services & Cab Owner Registration",
-  description: "Reliable airport transfers, city tours, outstation cab bookings, and partner cab registration with HR Trips.",
-};
 
 export default function CabServicesPage() {
   return (
