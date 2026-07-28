@@ -22,12 +22,10 @@ import {
   ArrowRight,
   ArrowLeft,
   X,
-  Flame,
   Check,
   FileCheck
 } from "lucide-react";
 import { cabRegistrationSchema, type CabRegistrationFormData } from "@/lib/validators";
-import { submitCabRegistration } from "@/lib/api";
 import Breadcrumbs from "@/components/shared/Breadcrumbs";
 
 export default function CabRegistrationPage() {
@@ -47,7 +45,7 @@ export default function CabRegistrationPage() {
     resolver: zodResolver(cabRegistrationSchema),
     mode: "onTouched",
     defaultValues: {
-      cabType: "Commercial",
+      cabType: "Sedan (4 seats)",
       cabPic: "",
       interiorPic: "",
       rcPic: "",
@@ -96,33 +94,13 @@ export default function CabRegistrationPage() {
     let fieldsToValidate: any[] = [];
     if (currentStep === 1) {
       fieldsToValidate = [
-        "ownerName",
-        "contactNo",
-        "email",
-        "password",
-        "address",
-        "city",
-        "state",
-        "pincode",
+        "ownerName", "contactNo", "email", "password", "address", "city", "state", "pincode",
       ];
     } else if (currentStep === 2) {
       fieldsToValidate = [
-        "cabName",
-        "cabNo",
-        "engineNo",
-        "chassisNo",
-        "insurance",
-        "fitness",
-        "permit",
-        "drivingLicenceNo",
-        "fireSafety",
-        "cabType",
-        "bankName",
-        "accountNo",
-        "ifscCode",
-        "driverName",
-        "driverContactNo",
-        "driverDlNo",
+        "cabName", "cabNo", "engineNo", "chassisNo", "insurance", "fitness",
+        "permit", "drivingLicenceNo", "fireSafety", "cabType", "bankName",
+        "accountNo", "ifscCode", "driverName", "driverContactNo", "driverDlNo",
       ];
     }
 
@@ -155,35 +133,41 @@ export default function CabRegistrationPage() {
     }
   };
 
+  // --- FULLY INTEGRATED LIVE API SUBMISSION ---
   const onSubmit = async (data: CabRegistrationFormData) => {
     setStatus("loading");
     setErrorMsg("");
 
     try {
-      // Remote API or Local Storage Submission
+      const formData = new FormData();
+      Object.keys(data).forEach((key) => {
+        formData.append(key, (data as any)[key]);
+      });
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/cabs/register.php`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const rawText = await response.text();
+      let result;
       try {
-        const formData = new FormData();
-        Object.keys(data).forEach((key) => {
-          formData.append(key, (data as any)[key]);
-        });
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/cabs/register.php`, {
-          method: "POST",
-          body: formData,
-        });
-      } catch {
-        // Fallback to client-side storage
+        result = JSON.parse(rawText);
+      } catch (parseErr) {
+        throw new Error("Server returned invalid data. Contact administrator.");
       }
 
-      await submitCabRegistration(data);
-
-      setStatus("success");
-      reset();
-      setCurrentStep(1);
+      if (response.ok && result.status === "success") {
+        setStatus("success");
+        reset();
+        setCurrentStep(1);
+      } else {
+        throw new Error(result.message || "Registration failed. Please try again.");
+      }
     } catch (err: any) {
       console.error(err);
       setStatus("error");
       setErrorMsg(err?.message || "Registration failed. Please try again.");
-      setTimeout(() => setStatus("idle"), 4000);
     }
   };
 
@@ -280,8 +264,7 @@ export default function CabRegistrationPage() {
                   <div
                     className="absolute top-1/2 left-0 h-0.5 bg-primary -translate-y-1/2 z-0 transition-all duration-300"
                     style={{
-                      width:
-                        currentStep === 1 ? "0%" : currentStep === 2 ? "50%" : "100%",
+                      width: currentStep === 1 ? "0%" : currentStep === 2 ? "50%" : "100%",
                     }}
                   />
 
@@ -364,9 +347,7 @@ export default function CabRegistrationPage() {
                         />
                       </div>
                       {errors.ownerName && (
-                        <p className="text-red-500 text-[10px] mt-1">
-                          {errors.ownerName.message}
-                        </p>
+                        <p className="text-red-500 text-[10px] mt-1">{errors.ownerName.message}</p>
                       )}
                     </div>
 
@@ -383,9 +364,7 @@ export default function CabRegistrationPage() {
                         />
                       </div>
                       {errors.contactNo && (
-                        <p className="text-red-500 text-[10px] mt-1">
-                          {errors.contactNo.message}
-                        </p>
+                        <p className="text-red-500 text-[10px] mt-1">{errors.contactNo.message}</p>
                       )}
                     </div>
 
@@ -403,9 +382,7 @@ export default function CabRegistrationPage() {
                         />
                       </div>
                       {errors.email && (
-                        <p className="text-red-500 text-[10px] mt-1">
-                          {errors.email.message}
-                        </p>
+                        <p className="text-red-500 text-[10px] mt-1">{errors.email.message}</p>
                       )}
                     </div>
 
@@ -423,9 +400,7 @@ export default function CabRegistrationPage() {
                         />
                       </div>
                       {errors.password && (
-                        <p className="text-red-500 text-[10px] mt-1">
-                          {errors.password.message}
-                        </p>
+                        <p className="text-red-500 text-[10px] mt-1">{errors.password.message}</p>
                       )}
                     </div>
 
@@ -442,58 +417,38 @@ export default function CabRegistrationPage() {
                         />
                       </div>
                       {errors.address && (
-                        <p className="text-red-500 text-[10px] mt-1">
-                          {errors.address.message}
-                        </p>
+                        <p className="text-red-500 text-[10px] mt-1">{errors.address.message}</p>
                       )}
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">
-                        City *
-                      </label>
+                      <label className="block text-xs font-semibold text-muted mb-1.5">City *</label>
                       <input
                         {...register("city")}
                         placeholder="e.g. Patna / Ranchi"
                         className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
                       />
-                      {errors.city && (
-                        <p className="text-red-500 text-[10px] mt-1">
-                          {errors.city.message}
-                        </p>
-                      )}
+                      {errors.city && <p className="text-red-500 text-[10px] mt-1">{errors.city.message}</p>}
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">
-                        State *
-                      </label>
+                      <label className="block text-xs font-semibold text-muted mb-1.5">State *</label>
                       <input
                         {...register("state")}
                         placeholder="e.g. Bihar"
                         className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
                       />
-                      {errors.state && (
-                        <p className="text-red-500 text-[10px] mt-1">
-                          {errors.state.message}
-                        </p>
-                      )}
+                      {errors.state && <p className="text-red-500 text-[10px] mt-1">{errors.state.message}</p>}
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">
-                        Pincode *
-                      </label>
+                      <label className="block text-xs font-semibold text-muted mb-1.5">Pincode *</label>
                       <input
                         {...register("pincode")}
                         placeholder="6-digit Pincode"
                         className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
                       />
-                      {errors.pincode && (
-                        <p className="text-red-500 text-[10px] mt-1">
-                          {errors.pincode.message}
-                        </p>
-                      )}
+                      {errors.pincode && <p className="text-red-500 text-[10px] mt-1">{errors.pincode.message}</p>}
                     </div>
                   </div>
                 </div>
@@ -508,165 +463,106 @@ export default function CabRegistrationPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">
-                        Cab / Vehicle Name *
-                      </label>
+                      <label className="block text-xs font-semibold text-muted mb-1.5">Cab / Vehicle Name *</label>
                       <input
                         {...register("cabName")}
                         placeholder="e.g. Toyota Innova Crysta / Swift Dzire"
                         className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
                       />
-                      {errors.cabName && (
-                        <p className="text-red-500 text-[10px] mt-1">
-                          {errors.cabName.message}
-                        </p>
-                      )}
+                      {errors.cabName && <p className="text-red-500 text-[10px] mt-1">{errors.cabName.message}</p>}
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">
-                        Cab / Vehicle Number (Registration No) *
-                      </label>
+                      <label className="block text-xs font-semibold text-muted mb-1.5">Cab / Vehicle Number *</label>
                       <input
                         {...register("cabNo")}
                         placeholder="e.g. BR 01 AB 1234"
                         className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none uppercase"
                       />
-                      {errors.cabNo && (
-                        <p className="text-red-500 text-[10px] mt-1">
-                          {errors.cabNo.message}
-                        </p>
-                      )}
+                      {errors.cabNo && <p className="text-red-500 text-[10px] mt-1">{errors.cabNo.message}</p>}
                     </div>
 
+                    {/* NEW UPDATED CAB TYPE SELECTOR */}
                     <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">
-                        Cab Type *
-                      </label>
+                      <label className="block text-xs font-semibold text-muted mb-1.5">Cab Type *</label>
                       <select
                         {...register("cabType")}
                         className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
                       >
-                        <option value="Commercial">Commercial (Yellow Plate)</option>
-                        <option value="Private">Private</option>
+                        <option value="Sedan (4 seats)">Sedan (4 seats)</option>
+                        <option value="SUV (6 seats)">SUV (6 seats)</option>
                       </select>
-                      {errors.cabType && (
-                        <p className="text-red-500 text-[10px] mt-1">
-                          {errors.cabType.message}
-                        </p>
-                      )}
+                      {errors.cabType && <p className="text-red-500 text-[10px] mt-1">{errors.cabType.message}</p>}
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">
-                        Engine Number *
-                      </label>
+                      <label className="block text-xs font-semibold text-muted mb-1.5">Engine Number *</label>
                       <input
                         {...register("engineNo")}
                         placeholder="Engine number as per RC"
                         className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none uppercase"
                       />
-                      {errors.engineNo && (
-                        <p className="text-red-500 text-[10px] mt-1">
-                          {errors.engineNo.message}
-                        </p>
-                      )}
+                      {errors.engineNo && <p className="text-red-500 text-[10px] mt-1">{errors.engineNo.message}</p>}
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">
-                        Chassis Number *
-                      </label>
+                      <label className="block text-xs font-semibold text-muted mb-1.5">Chassis Number *</label>
                       <input
                         {...register("chassisNo")}
                         placeholder="Chassis number as per RC"
                         className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none uppercase"
                       />
-                      {errors.chassisNo && (
-                        <p className="text-red-500 text-[10px] mt-1">
-                          {errors.chassisNo.message}
-                        </p>
-                      )}
+                      {errors.chassisNo && <p className="text-red-500 text-[10px] mt-1">{errors.chassisNo.message}</p>}
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">
-                        Driving Licence Number *
-                      </label>
+                      <label className="block text-xs font-semibold text-muted mb-1.5">Driving Licence Number *</label>
                       <input
                         {...register("drivingLicenceNo")}
                         placeholder="DL Number"
                         className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none uppercase"
                       />
-                      {errors.drivingLicenceNo && (
-                        <p className="text-red-500 text-[10px] mt-1">
-                          {errors.drivingLicenceNo.message}
-                        </p>
-                      )}
+                      {errors.drivingLicenceNo && <p className="text-red-500 text-[10px] mt-1">{errors.drivingLicenceNo.message}</p>}
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">
-                        Insurance Details / Policy No *
-                      </label>
+                      <label className="block text-xs font-semibold text-muted mb-1.5">Insurance Details *</label>
                       <input
                         {...register("insurance")}
                         placeholder="Insurance Company & Policy No"
                         className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
                       />
-                      {errors.insurance && (
-                        <p className="text-red-500 text-[10px] mt-1">
-                          {errors.insurance.message}
-                        </p>
-                      )}
+                      {errors.insurance && <p className="text-red-500 text-[10px] mt-1">{errors.insurance.message}</p>}
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">
-                        Fitness Certificate Details *
-                      </label>
+                      <label className="block text-xs font-semibold text-muted mb-1.5">Fitness Certificate Details *</label>
                       <input
                         {...register("fitness")}
                         placeholder="Fitness Validity / Certificate No"
                         className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
                       />
-                      {errors.fitness && (
-                        <p className="text-red-500 text-[10px] mt-1">
-                          {errors.fitness.message}
-                        </p>
-                      )}
+                      {errors.fitness && <p className="text-red-500 text-[10px] mt-1">{errors.fitness.message}</p>}
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">
-                        Permit Type & Details *
-                      </label>
+                      <label className="block text-xs font-semibold text-muted mb-1.5">Permit Type & Details *</label>
                       <input
                         {...register("permit")}
                         placeholder="All India Tourist / State Permit"
                         className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
                       />
-                      {errors.permit && (
-                        <p className="text-red-500 text-[10px] mt-1">
-                          {errors.permit.message}
-                        </p>
-                      )}
+                      {errors.permit && <p className="text-red-500 text-[10px] mt-1">{errors.permit.message}</p>}
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">
-                        Fire Safety Status *
-                      </label>
+                      <label className="block text-xs font-semibold text-muted mb-1.5">Fire Safety Status *</label>
                       <input
                         {...register("fireSafety")}
                         placeholder="Extinguisher Installed / Active"
                         className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
                       />
-                      {errors.fireSafety && (
-                        <p className="text-red-500 text-[10px] mt-1">
-                          {errors.fireSafety.message}
-                        </p>
-                      )}
+                      {errors.fireSafety && <p className="text-red-500 text-[10px] mt-1">{errors.fireSafety.message}</p>}
                     </div>
                   </div>
 
@@ -677,51 +573,19 @@ export default function CabRegistrationPage() {
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
-                        <label className="block text-[11px] text-muted mb-1 font-medium">
-                          Driver Name *
-                        </label>
-                        <input
-                          {...register("driverName")}
-                          placeholder="Primary Driver Name"
-                          className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                        />
-                        {errors.driverName && (
-                          <p className="text-red-500 text-[10px] mt-1">
-                            {errors.driverName.message}
-                          </p>
-                        )}
+                        <label className="block text-[11px] text-muted mb-1 font-medium">Driver Name *</label>
+                        <input {...register("driverName")} placeholder="Primary Driver Name" className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none" />
+                        {errors.driverName && <p className="text-red-500 text-[10px] mt-1">{errors.driverName.message}</p>}
                       </div>
-
                       <div>
-                        <label className="block text-[11px] text-muted mb-1 font-medium">
-                          Driver Contact No *
-                        </label>
-                        <input
-                          {...register("driverContactNo")}
-                          placeholder="Driver Phone Number"
-                          className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                        />
-                        {errors.driverContactNo && (
-                          <p className="text-red-500 text-[10px] mt-1">
-                            {errors.driverContactNo.message}
-                          </p>
-                        )}
+                        <label className="block text-[11px] text-muted mb-1 font-medium">Driver Contact No *</label>
+                        <input {...register("driverContactNo")} placeholder="Driver Phone Number" className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none" />
+                        {errors.driverContactNo && <p className="text-red-500 text-[10px] mt-1">{errors.driverContactNo.message}</p>}
                       </div>
-
                       <div>
-                        <label className="block text-[11px] text-muted mb-1 font-medium">
-                          Driver DL No *
-                        </label>
-                        <input
-                          {...register("driverDlNo")}
-                          placeholder="Driver Licence Number"
-                          className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none uppercase"
-                        />
-                        {errors.driverDlNo && (
-                          <p className="text-red-500 text-[10px] mt-1">
-                            {errors.driverDlNo.message}
-                          </p>
-                        )}
+                        <label className="block text-[11px] text-muted mb-1 font-medium">Driver DL No *</label>
+                        <input {...register("driverDlNo")} placeholder="Driver Licence Number" className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none uppercase" />
+                        {errors.driverDlNo && <p className="text-red-500 text-[10px] mt-1">{errors.driverDlNo.message}</p>}
                       </div>
                     </div>
                   </div>
@@ -733,51 +597,19 @@ export default function CabRegistrationPage() {
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
-                        <label className="block text-[11px] text-muted mb-1 font-medium">
-                          Bank Name *
-                        </label>
-                        <input
-                          {...register("bankName")}
-                          placeholder="e.g. HDFC Bank"
-                          className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                        />
-                        {errors.bankName && (
-                          <p className="text-red-500 text-[10px] mt-1">
-                            {errors.bankName.message}
-                          </p>
-                        )}
+                        <label className="block text-[11px] text-muted mb-1 font-medium">Bank Name *</label>
+                        <input {...register("bankName")} placeholder="e.g. HDFC Bank" className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none" />
+                        {errors.bankName && <p className="text-red-500 text-[10px] mt-1">{errors.bankName.message}</p>}
                       </div>
-
                       <div>
-                        <label className="block text-[11px] text-muted mb-1 font-medium">
-                          Account Number *
-                        </label>
-                        <input
-                          {...register("accountNo")}
-                          placeholder="Bank Account Number"
-                          className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
-                        />
-                        {errors.accountNo && (
-                          <p className="text-red-500 text-[10px] mt-1">
-                            {errors.accountNo.message}
-                          </p>
-                        )}
+                        <label className="block text-[11px] text-muted mb-1 font-medium">Account Number *</label>
+                        <input {...register("accountNo")} placeholder="Bank Account Number" className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none" />
+                        {errors.accountNo && <p className="text-red-500 text-[10px] mt-1">{errors.accountNo.message}</p>}
                       </div>
-
                       <div>
-                        <label className="block text-[11px] text-muted mb-1 font-medium">
-                          IFSC Code *
-                        </label>
-                        <input
-                          {...register("ifscCode")}
-                          placeholder="e.g. HDFC0001234"
-                          className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none uppercase"
-                        />
-                        {errors.ifscCode && (
-                          <p className="text-red-500 text-[10px] mt-1">
-                            {errors.ifscCode.message}
-                          </p>
-                        )}
+                        <label className="block text-[11px] text-muted mb-1 font-medium">IFSC Code *</label>
+                        <input {...register("ifscCode")} placeholder="e.g. HDFC0001234" className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none uppercase" />
+                        {errors.ifscCode && <p className="text-red-500 text-[10px] mt-1">{errors.ifscCode.message}</p>}
                       </div>
                     </div>
                   </div>
@@ -798,29 +630,18 @@ export default function CabRegistrationPage() {
                     {fileUploadBoxes.map((box) => {
                       const BoxIcon = box.icon;
                       return (
-                        <div
-                          key={box.key}
-                          className="border border-border/60 rounded-2xl p-4 bg-surface/50 hover:bg-surface transition-colors flex flex-col justify-between"
-                        >
+                        <div key={box.key} className="border border-border/60 rounded-2xl p-4 bg-surface/50 hover:bg-surface transition-colors flex flex-col justify-between">
                           <div>
                             <div className="flex items-center gap-2 mb-1">
                               <BoxIcon className="w-4 h-4 text-primary shrink-0" />
-                              <span className="text-xs font-bold text-ink">
-                                {box.label} *
-                              </span>
+                              <span className="text-xs font-bold text-ink">{box.label} *</span>
                             </div>
-                            <p className="text-[11px] text-muted mb-3 leading-snug">
-                              {box.description}
-                            </p>
+                            <p className="text-[11px] text-muted mb-3 leading-snug">{box.description}</p>
 
                             {/* UPLOAD BOX / PREVIEW */}
                             {box.value ? (
                               <div className="relative group rounded-xl overflow-hidden border border-border h-32 bg-black/5">
-                                <img
-                                  src={box.value}
-                                  alt={box.label}
-                                  className="w-full h-full object-cover"
-                                />
+                                <img src={box.value} alt={box.label} className="w-full h-full object-cover" />
                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                   <button
                                     type="button"
@@ -834,26 +655,14 @@ export default function CabRegistrationPage() {
                             ) : (
                               <label className="border-2 border-dashed border-border hover:border-primary bg-white rounded-xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-colors h-32">
                                 <Upload className="w-6 h-6 text-muted mb-1" />
-                                <span className="text-xs font-semibold text-primary">
-                                  Upload File
-                                </span>
-                                <span className="text-[10px] text-muted mt-0.5">
-                                  PNG, JPG or WEBP (Max 5MB)
-                                </span>
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={(e) => handleSingleImageUpload(e, box.key)}
-                                  className="hidden"
-                                />
+                                <span className="text-xs font-semibold text-primary">Upload File</span>
+                                <span className="text-[10px] text-muted mt-0.5">PNG, JPG or WEBP (Max 5MB)</span>
+                                <input type="file" accept="image/*" onChange={(e) => handleSingleImageUpload(e, box.key)} className="hidden" />
                               </label>
                             )}
                           </div>
-
                           {errors[box.key] && (
-                            <p className="text-red-500 text-[10px] mt-2">
-                              {(errors[box.key] as any)?.message}
-                            </p>
+                            <p className="text-red-500 text-[10px] mt-2">{(errors[box.key] as any)?.message}</p>
                           )}
                         </div>
                       );
@@ -865,39 +674,21 @@ export default function CabRegistrationPage() {
               {/* NAVIGATION CONTROL BUTTONS */}
               <div className="mt-8 p-4 sm:p-6 bg-white border border-border/50 rounded-2xl shadow-sm flex items-center justify-between">
                 {currentStep > 1 ? (
-                  <button
-                    type="button"
-                    onClick={prevStep}
-                    className="px-6 py-3 border border-border text-ink font-semibold rounded-xl text-xs hover:bg-surface cursor-pointer transition-colors flex items-center gap-2"
-                  >
+                  <button type="button" onClick={prevStep} className="px-6 py-3 border border-border text-ink font-semibold rounded-xl text-xs hover:bg-surface cursor-pointer transition-colors flex items-center gap-2">
                     <ArrowLeft className="w-4 h-4" /> Previous Step
                   </button>
-                ) : (
-                  <div />
-                )}
+                ) : <div />}
 
                 {currentStep < 3 ? (
-                  <button
-                    type="button"
-                    onClick={nextStep}
-                    className="px-6 py-3.5 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl text-xs cursor-pointer shadow-lg shadow-primary/20 transition-all flex items-center gap-2"
-                  >
+                  <button type="button" onClick={nextStep} className="px-6 py-3.5 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl text-xs cursor-pointer shadow-lg shadow-primary/20 transition-all flex items-center gap-2">
                     Next Step <ArrowRight className="w-4 h-4" />
                   </button>
                 ) : (
-                  <button
-                    type="submit"
-                    disabled={status === "loading"}
-                    className="px-8 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2 disabled:opacity-70"
-                  >
+                  <button type="submit" disabled={status === "loading"} className="px-8 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2 disabled:opacity-70">
                     {status === "loading" ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" /> Submitting Request...
-                      </>
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Submitting Request...</>
                     ) : (
-                      <>
-                        <Check className="w-4 h-4" /> Submit Cab Registration
-                      </>
+                      <><Check className="w-4 h-4" /> Submit Cab Registration</>
                     )}
                   </button>
                 )}

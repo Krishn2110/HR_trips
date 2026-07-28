@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Mail, Lock, Loader2, Car, ArrowLeft, KeyRound, CheckCircle2 } from "lucide-react";
-import { getCabRegistrationByEmail } from "@/lib/api";
 
 type ViewState = "login" | "request" | "verify" | "reset" | "success";
 
@@ -24,6 +23,18 @@ export default function CabOwnerLoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Helper to parse JSON safely from PHP output
+  const parseResponse = async (res: Response) => {
+    const rawText = await res.text();
+    const firstBrace = rawText.indexOf('{');
+    const lastBrace = rawText.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      const jsonText = rawText.substring(firstBrace, lastBrace + 1);
+      return JSON.parse(jsonText);
+    }
+    throw new Error("Invalid server response");
+  };
+
   // --- API: LOGIN ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,56 +42,37 @@ export default function CabOwnerLoginPage() {
     setError("");
 
     try {
-      // 1. Try remote API first
-      let success = false;
-      try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/cabs/auth/login.php`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
-        });
-        const rawText = await response.text();
-        const firstBrace = rawText.indexOf('{');
-        const lastBrace = rawText.lastIndexOf('}');
-        if (firstBrace !== -1 && lastBrace !== -1) {
-          const jsonText = rawText.substring(firstBrace, lastBrace + 1);
-          const result = JSON.parse(jsonText);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/cabs/auth/login.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      
+      const result = await parseResponse(response);
 
-          if (response.ok && result.status === "success") {
-            sessionStorage.setItem("cabOwnerLoggedIn", "true");
-            sessionStorage.setItem("cabOwnerEmail", result.data.email || email);
-            sessionStorage.setItem("cabOwnerId", result.data.id || "1");
-            success = true;
-            router.push("/cab-owner");
-            return;
-          }
+      if (response.ok && result.status === "success") {
+        // Double check status on frontend just in case
+        if (result.data?.status === "pending") {
+          setError("Your account is pending approval. You can login after admin approval.");
+          return;
         }
-      } catch (remoteErr) {
-        console.log("Remote login check skipped, trying local registry...", remoteErr);
-      }
+        if (result.data?.status === "rejected") {
+          setError("Your registration was rejected. Please contact support.");
+          return;
+        }
 
-      // 2. Fallback to local cab registration storage
-      if (!success) {
-        const reg = await getCabRegistrationByEmail(email.trim());
-        if (reg) {
-          if (reg.password === password) {
-            sessionStorage.setItem("cabOwnerLoggedIn", "true");
-            sessionStorage.setItem("cabOwnerEmail", reg.email);
-            sessionStorage.setItem("cabOwnerId", reg.id);
-            router.push("/cab-owner");
-            return;
-          } else {
-            setError("Invalid password. Please check your password.");
-            setIsLoading(false);
-            return;
-          }
-        } else {
-          setError("No registered cab found with this email. Please register your vehicle first.");
-        }
+        // Successfully approved and logged in
+        sessionStorage.setItem("cabOwnerLoggedIn", "true");
+        sessionStorage.setItem("cabOwnerEmail", result.data.email);
+        sessionStorage.setItem("cabOwnerId", result.data.id);
+        router.push("/cab-owner");
+      } else {
+        // Displays the specific "pending approval" message sent by PHP
+        setError(result.message || "Invalid credentials. Please try again.");
       }
-    } catch {
-      setError("Network error. Please try again.");
-    } fontally: {
+    } catch (err: any) {
+      setError("Network error. Please check your connection.");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -93,8 +85,20 @@ export default function CabOwnerLoginPage() {
 
     setIsLoading(true);
     try {
-      setView("verify");
-    } catch {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/cabs/auth/request_otp.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      
+      const result = await parseResponse(response);
+
+      if (response.ok && result.status === "success") {
+        setView("verify");
+      } else {
+        setError(result.message || "Failed to send OTP.");
+      }
+    } catch (err) {
       setError("Network error. Please check your connection.");
     } finally {
       setIsLoading(false);
@@ -105,12 +109,24 @@ export default function CabOwnerLoginPage() {
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (otp.length !== 6) return setError("Please enter the 6-digit OTP");
+    if (otp.length !== 6) return setError("Please enter the full 6-digit OTP");
 
     setIsLoading(true);
     try {
-      setView("reset");
-    } catch {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/cabs/auth/verify_otp.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), otp }),
+      });
+      
+      const result = await parseResponse(response);
+
+      if (response.ok && result.status === "success") {
+        setView("reset");
+      } else {
+        setError(result.message || "Invalid or expired OTP.");
+      }
+    } catch (err) {
       setError("Network error. Please check your connection.");
     } finally {
       setIsLoading(false);
@@ -125,8 +141,20 @@ export default function CabOwnerLoginPage() {
 
     setIsLoading(true);
     try {
-      setView("success");
-    } catch {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/cabs/auth/reset_password.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), otp, newPassword }),
+      });
+      
+      const result = await parseResponse(response);
+
+      if (response.ok && result.status === "success") {
+        setView("success");
+      } else {
+        setError(result.message || "Failed to update password.");
+      }
+    } catch (err) {
       setError("Network error. Please check your connection.");
     } finally {
       setIsLoading(false);

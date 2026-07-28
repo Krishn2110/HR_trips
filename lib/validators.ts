@@ -220,7 +220,7 @@ export const cabRegistrationSchema = z.object({
   fireSafety: z
     .string()
     .min(2, "Fire safety equipment status required"),
-  cabType: z.enum(["Commercial", "Private"]),
+  cabType: z.enum(["Sedan (4 seats)", "SUV (6 seats)"]),
 
   // Photos & Document Uploads (Data URLs or File Uploads)
   cabPic: z
@@ -291,4 +291,4 @@ export const cabRegistrationSchema = z.object({
     .min(4, "Driver DL number is required"),
 });
 
-export type CabRegistrationFormData = z.infer<typeof cabRegistrationSchema>;
+export type CabRegistrationFormData = z.infer<typeof cabRegistrationSchema>;

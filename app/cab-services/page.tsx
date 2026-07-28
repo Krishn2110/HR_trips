@@ -1,11 +1,67 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { Car, ShieldCheck, CheckCircle2, UserCheck, ArrowRight, Phone, MessageCircle } from "lucide-react";
+import { Car, ShieldCheck, CheckCircle2, UserCheck, ArrowRight, Phone, MessageCircle, Loader2, AlertCircle } from "lucide-react";
 import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import { CONTACT } from "@/lib/constants";
 
 export default function CabServicesPage() {
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    pickup: "",
+    dropoff: "",
+    date: "",
+    time: "",
+    tripType: "",
+    cabType: "",
+  });
+
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [message, setMessage] = useState("");
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleBookingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatus("loading");
+    setMessage("");
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/cabs/create_booking.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const rawText = await response.text();
+      let result;
+      try {
+        result = JSON.parse(rawText);
+      } catch (err) {
+        throw new Error("Invalid server response.");
+      }
+
+      if (response.ok && result.status === "success") {
+        setStatus("success");
+        setFormData({
+          name: "", email: "", phone: "", pickup: "", dropoff: "", date: "", time: "", tripType: "", cabType: ""
+        });
+        setTimeout(() => setStatus("idle"), 5000);
+      } else {
+        throw new Error(result.message || "Failed to submit booking request.");
+      }
+    } catch (error: any) {
+      console.error(error);
+      setStatus("error");
+      setMessage(error?.message || "Network error. Please try again.");
+    }
+  };
+
   return (
     <>
       {/* Header Banner */}
@@ -13,23 +69,16 @@ export default function CabServicesPage() {
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
-            backgroundImage:
-              "url('https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=1400&q=80')",
+            backgroundImage: "url('https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=1400&q=80')",
           }}
         >
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/30" />
         </div>
         <div className="container-wide relative z-10 pb-8">
-          <h1
-            style={{ color: "#ffffff" }}
-            className="font-heading text-3xl lg:text-4xl font-bold !text-white mb-1"
-          >
+          <h1 className="font-heading text-3xl lg:text-4xl font-bold !text-white mb-1">
             Cab Services & Partner Network
           </h1>
-          <p
-            style={{ color: "rgba(255, 255, 255, 0.85)" }}
-            className="text-sm lg:text-base !text-white/85"
-          >
+          <p className="text-sm lg:text-base !text-white/85">
             Book premium rides or register your cab fleet with HR Trips
           </p>
         </div>
@@ -49,16 +98,10 @@ export default function CabServicesPage() {
             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/20 border border-primary/30 rounded-full text-xs font-bold text-primary">
               <Car className="w-3.5 h-3.5" /> CAB OWNER PARTNER PROGRAM
             </span>
-            <h2
-              style={{ color: "#ffffff" }}
-              className="font-heading font-black text-2xl sm:text-3xl !text-white"
-            >
+            <h2 className="font-heading font-black text-2xl sm:text-3xl !text-white">
               Own a Cab or Taxi Fleet? Register & Drive with HR Trips
             </h2>
-            <p
-              style={{ color: "rgba(255, 255, 255, 0.85)" }}
-              className="!text-white/85 text-xs sm:text-sm leading-relaxed"
-            >
+            <p className="!text-white/85 text-xs sm:text-sm leading-relaxed">
               Join our network of verified cab operators. Register your vehicle details (Cab No, Engine/Chassis No, Insurance, Permit, DL, PUC, Photos & Bank info) for quick admin verification and receive steady trip bookings.
             </p>
 
@@ -131,15 +174,13 @@ export default function CabServicesPage() {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-6 py-3 bg-[#25D366] text-white text-sm font-semibold rounded-xl hover:bg-[#20bd5a] hover:shadow-lg transition-all"
                 >
-                  <MessageCircle className="w-4 h-4" />
-                  WhatsApp Enquiry
+                  <MessageCircle className="w-4 h-4" /> WhatsApp Enquiry
                 </a>
                 <a
                   href={`tel:${CONTACT.phone}`}
                   className="inline-flex items-center gap-2 px-6 py-3 bg-white text-ink border border-border text-sm font-semibold rounded-xl hover:border-primary hover:text-primary transition-all"
                 >
-                  <Phone className="w-4 h-4" />
-                  Call Support
+                  <Phone className="w-4 h-4" /> Call Support
                 </a>
               </div>
             </div>
@@ -147,69 +188,151 @@ export default function CabServicesPage() {
 
           {/* Quick Ride Booking Form */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl border border-border/50 p-6 space-y-4">
-              <h3 className="font-heading font-semibold text-ink text-lg">
-                Quick Cab Booking Request
+            <div className="bg-white rounded-2xl border border-border/50 p-6 space-y-4 shadow-sm">
+              <h3 className="font-heading font-semibold text-ink text-lg border-b border-border/50 pb-3">
+                Quick Cab Booking
               </h3>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  alert("Cab booking request submitted successfully! Our team will contact you shortly.");
-                  (e.target as HTMLFormElement).reset();
-                }}
-                className="space-y-4"
-              >
-                <div>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Your Name *"
-                    className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none"
-                  />
+              
+              {status === "success" ? (
+                <div className="py-8 text-center space-y-3">
+                  <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                    <CheckCircle2 className="w-6 h-6" />
+                  </div>
+                  <h4 className="font-bold text-ink">Request Submitted!</h4>
+                  <p className="text-xs text-muted leading-relaxed">
+                    We've emailed you the details. Our team will contact you shortly to confirm the cab assignment and amount.
+                  </p>
                 </div>
-                <div>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="Phone Number *"
-                    className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none"
-                  />
-                </div>
-                <div>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Pickup Location *"
-                    className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none"
-                  />
-                </div>
-                <div>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Destination Location *"
-                    className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none"
-                  />
-                </div>
-                <div>
-                  <select
-                    required
-                    className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none"
+              ) : (
+                <form onSubmit={handleBookingSubmit} className="space-y-4">
+                  {status === "error" && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-2 text-red-700 text-xs font-medium">
+                      <AlertCircle className="w-4 h-4 shrink-0" /> {message}
+                    </div>
+                  )}
+
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      name="name"
+                      required
+                      value={formData.name}
+                      onChange={handleChange}
+                      placeholder="Your Full Name *"
+                      className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none"
+                    />
+                    <input
+                      type="email"
+                      name="email"
+                      required
+                      value={formData.email}
+                      onChange={handleChange}
+                      placeholder="Email Address (For details) *"
+                      className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none"
+                    />
+                    <input
+                      type="tel"
+                      name="phone"
+                      required
+                      value={formData.phone}
+                      onChange={handleChange}
+                      placeholder="Phone Number *"
+                      className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2">
+                      <input
+                        type="text"
+                        name="pickup"
+                        required
+                        value={formData.pickup}
+                        onChange={handleChange}
+                        placeholder="Pickup Location *"
+                        className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <input
+                        type="text"
+                        name="dropoff"
+                        required
+                        value={formData.dropoff}
+                        onChange={handleChange}
+                        placeholder="Destination Location *"
+                        className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] text-muted mb-1 ml-1 font-semibold">Pickup Date *</label>
+                      <input
+                        type="date"
+                        name="date"
+                        required
+                        value={formData.date}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-muted mb-1 ml-1 font-semibold">Pickup Time *</label>
+                      <input
+                        type="time"
+                        name="time"
+                        required
+                        value={formData.time}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <select
+                      name="tripType"
+                      required
+                      value={formData.tripType}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none"
+                    >
+                      <option value="">Trip Type *</option>
+                      <option value="One Way">One Way</option>
+                      <option value="Round Trip">Round Trip (Two Way)</option>
+                    </select>
+
+                    <select
+                      name="cabType"
+                      required
+                      value={formData.cabType}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none"
+                    >
+                      <option value="">Cab Type *</option>
+                      <option value="Sedan (4 seats)">Sedan (4 seats)</option>
+                      <option value="SUV (6 seats)">SUV (6 seats)</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={status === "loading"}
+                    className="w-full py-3.5 mt-2 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl text-xs cursor-pointer shadow-lg shadow-primary/20 transition-all flex justify-center items-center gap-2 disabled:opacity-70"
                   >
-                    <option value="">Select Cab Type *</option>
-                    <option value="Sedan">Sedan (Dzire / Etios)</option>
-                    <option value="SUV">SUV (Innova Crysta / Ertiga)</option>
-                    <option value="Luxury">Luxury Car</option>
-                    <option value="Tempo">Tempo Traveller</option>
-                  </select>
-                </div>
-                <button
-                  type="submit"
-                  className="w-full py-3.5 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl text-xs cursor-pointer shadow-lg shadow-primary/20 transition-all"
-                >
-                  Submit Ride Request
-                </button>
-              </form>
+                    {status === "loading" ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Submitting...</>
+                    ) : (
+                      "Submit Ride Request"
+                    )}
+                  </button>
+                  <p className="text-[10px] text-center text-muted mt-2">
+                    Our team will contact you to assign the cab and confirm the amount.
+                  </p>
+                </form>
+              )}
             </div>
           </div>
         </div>
