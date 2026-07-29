@@ -72,11 +72,9 @@ export default function HotelOwnerLayout({
     <div className="min-h-screen bg-[#f8f9fa] flex flex-col lg:flex-row">
       {/* Mobile Top Bar */}
       <header className="lg:hidden h-16 bg-[#1A1A1A] border-b border-white/5 px-6 flex items-center justify-between sticky top-0 z-40">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-sm">
-            <Hotel className="w-4 h-4" />
-          </div>
-          <span className="font-heading font-bold text-white text-base">Owner Portal</span>
+        <div className="flex items-center gap-2.5">
+          <img src="/logo.png" alt="HR Trips Logo" className="w-8 h-8 object-contain rounded-lg bg-white p-0.5" />
+          <span className="font-heading font-bold text-white text-base">Hotel Owner Portal</span>
         </div>
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
@@ -94,15 +92,13 @@ export default function HotelOwnerLayout({
       >
         {/* Brand */}
         <div className="h-20 border-b border-white/5 px-6 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-lg shadow-primary/20">
-            <Hotel className="w-5 h-5 text-white" />
-          </div>
+          <img src="/logo.png" alt="HR Trips Logo" className="w-10 h-10 object-contain rounded-xl shadow-md bg-white p-1 shrink-0" />
           <div>
             <span className="font-heading font-black text-white text-lg tracking-tight block">
-              Owner Portal
+              HR Trips
             </span>
             <span className="text-[10px] text-white/40 font-medium uppercase tracking-wider">
-              Hotel Dashboard
+              Hotel Owner Portal
             </span>
           </div>
         </div>

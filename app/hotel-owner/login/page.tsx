@@ -167,9 +167,7 @@ export default function HotelOwnerLoginPage() {
         {/* Auth Card */}
         <div className="bg-white rounded-2xl border border-border/50 shadow-xl shadow-black/5 p-8">
           <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/20">
-              <Hotel className="w-8 h-8 text-white" />
-            </div>
+            <img src="/logo.png" alt="HR Trips Logo" className="w-16 h-16 object-contain rounded-2xl mx-auto mb-4 shadow-lg bg-white p-1 border border-border/40" />
             <h1 className="font-heading font-black text-2xl text-ink">
               Hotel Owner Portal
             </h1>

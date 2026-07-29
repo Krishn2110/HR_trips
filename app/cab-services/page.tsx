@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Car, ShieldCheck, CheckCircle2, UserCheck, ArrowRight, Phone, MessageCircle, Loader2, AlertCircle } from "lucide-react";
 import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import { CONTACT } from "@/lib/constants";
+import LocationAutoSuggest from "@/components/shared/LocationAutoSuggest";
 
 export default function CabServicesPage() {
   const [formData, setFormData] = useState({
@@ -243,25 +244,19 @@ export default function CabServicesPage() {
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="col-span-2">
-                      <input
-                        type="text"
-                        name="pickup"
-                        required
+                      <LocationAutoSuggest
+                        type="city"
                         value={formData.pickup}
-                        onChange={handleChange}
-                        placeholder="Pickup Location *"
-                        className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none"
+                        onChange={(val) => setFormData((prev) => ({ ...prev, pickup: val }))}
+                        placeholder="Pickup Location (e.g. Patna / Airport) *"
                       />
                     </div>
                     <div className="col-span-2">
-                      <input
-                        type="text"
-                        name="dropoff"
-                        required
+                      <LocationAutoSuggest
+                        type="city"
                         value={formData.dropoff}
-                        onChange={handleChange}
-                        placeholder="Destination Location *"
-                        className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none"
+                        onChange={(val) => setFormData((prev) => ({ ...prev, dropoff: val }))}
+                        placeholder="Destination Location (e.g. Muzaffarpur) *"
                       />
                     </div>
                   </div>

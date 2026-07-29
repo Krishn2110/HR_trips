@@ -28,6 +28,7 @@ import {
 import { cabRegistrationSchema, type CabRegistrationFormData } from "@/lib/validators";
 import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import { submitCabRegistration } from "@/lib/api";
+import LocationAutoSuggest, { fetchCityStateFromPincode } from "@/components/shared/LocationAutoSuggest";
 
 export default function CabRegistrationPage() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
@@ -451,31 +452,45 @@ export default function CabRegistrationPage() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">City *</label>
-                      <input
-                        {...register("city")}
-                        placeholder="e.g. Patna / Ranchi"
-                        className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                      <LocationAutoSuggest
+                        label="City *"
+                        type="city"
+                        value={watch("city") || ""}
+                        onChange={(val) => setValue("city", val, { shouldValidate: true })}
+                        onSelectState={(st) => setValue("state", st, { shouldValidate: true })}
+                        placeholder="e.g. Patna / New Delhi"
+                        error={errors.city?.message}
                       />
-                      {errors.city && <p className="text-red-500 text-[10px] mt-1">{errors.city.message}</p>}
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5">State *</label>
-                      <input
-                        {...register("state")}
+                      <LocationAutoSuggest
+                        label="State *"
+                        type="state"
+                        value={watch("state") || ""}
+                        onChange={(val) => setValue("state", val, { shouldValidate: true })}
                         placeholder="e.g. Bihar"
-                        className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                        error={errors.state?.message}
                       />
-                      {errors.state && <p className="text-red-500 text-[10px] mt-1">{errors.state.message}</p>}
                     </div>
 
                     <div>
                       <label className="block text-xs font-semibold text-muted mb-1.5">Pincode *</label>
                       <input
                         {...register("pincode")}
-                        placeholder="6-digit Pincode"
-                        className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none"
+                        onChange={async (e) => {
+                          const val = e.target.value;
+                          setValue("pincode", val, { shouldValidate: true });
+                          if (val.replace(/\D/g, "").length === 6) {
+                            const loc = await fetchCityStateFromPincode(val);
+                            if (loc) {
+                              if (loc.city) setValue("city", loc.city, { shouldValidate: true });
+                              if (loc.state) setValue("state", loc.state, { shouldValidate: true });
+                            }
+                          }
+                        }}
+                        placeholder="Auto-fetches City & State"
+                        className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary transition-colors outline-none font-mono"
                       />
                       {errors.pincode && <p className="text-red-500 text-[10px] mt-1">{errors.pincode.message}</p>}
                     </div>
