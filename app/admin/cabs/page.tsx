@@ -307,9 +307,32 @@ export default function AdminCabsPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button onClick={() => setViewingReg(reg)} className="px-3 py-1.5 bg-surface hover:bg-blue-50 text-ink hover:text-blue-600 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-colors">
-                          <Eye className="w-3.5 h-3.5" /> View Details
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          {reg.status !== 'approved' && (
+                            <button
+                              onClick={() => updateRegistrationStatus(reg.id, 'approved')}
+                              className="px-2.5 py-1 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                              title="Accept & Approve Cab"
+                            >
+                              Accept
+                            </button>
+                          )}
+                          {reg.status !== 'rejected' && (
+                            <button
+                              onClick={() => updateRegistrationStatus(reg.id, 'rejected')}
+                              className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                              title="Reject Registration"
+                            >
+                              Reject
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setViewingReg(reg)}
+                            className="px-2.5 py-1 bg-surface hover:bg-blue-50 text-ink hover:text-blue-600 border border-border rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5" /> View Details
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

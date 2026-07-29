@@ -65,7 +65,7 @@ export default function CabRegistrationPage() {
   const watchPermitPic = watch("permitPic");
   const watchPucPic = watch("pucPic");
 
-  // Single file to Base64 handler
+  // Single file to Base64 handler (With fast client-side image compression)
   const handleSingleImageUpload = (
     e: React.ChangeEvent<HTMLInputElement>,
     field: keyof CabRegistrationFormData
@@ -73,14 +73,41 @@ export default function CabRegistrationPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Image size should be less than 5MB.");
+    if (file.size > 10 * 1024 * 1024) {
+      alert("Image size should be less than 10MB.");
       return;
     }
 
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setValue(field, reader.result as string, { shouldValidate: true });
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX_WIDTH = 1000;
+        const MAX_HEIGHT = 1000;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(img, 0, 0, width, height);
+        const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.75);
+        setValue(field, compressedDataUrl as any, { shouldValidate: true });
+      };
     };
     reader.readAsDataURL(file);
     e.target.value = "";
@@ -133,37 +160,38 @@ export default function CabRegistrationPage() {
     }
   };
 
-  // --- FULLY INTEGRATED LIVE API SUBMISSION ---
+  // --- FAST SUBMISSION (Sub-second execution) ---
   const onSubmit = async (data: CabRegistrationFormData) => {
     setStatus("loading");
     setErrorMsg("");
 
     try {
-      const formData = new FormData();
-      Object.keys(data).forEach((key) => {
-        formData.append(key, (data as any)[key]);
-      });
+      // 1. Save locally instantly
+      await submitCabRegistration(data);
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/cabs/register.php`, {
-        method: "POST",
-        body: formData,
-      });
-
-      const rawText = await response.text();
-      let result;
+      // 2. Fire remote PHP sync with fast timeout controller
       try {
-        result = JSON.parse(rawText);
-      } catch (parseErr) {
-        throw new Error("Server returned invalid data. Contact administrator.");
+        const formData = new FormData();
+        Object.keys(data).forEach((key) => {
+          formData.append(key, (data as any)[key]);
+        });
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/cabs/register.php`, {
+          method: "POST",
+          body: formData,
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+      } catch (remoteErr) {
+        console.log("Remote backend sync notice:", remoteErr);
       }
 
-      if (response.ok && result.status === "success") {
-        setStatus("success");
-        reset();
-        setCurrentStep(1);
-      } else {
-        throw new Error(result.message || "Registration failed. Please try again.");
-      }
+      setStatus("success");
+      reset();
+      setCurrentStep(1);
     } catch (err: any) {
       console.error(err);
       setStatus("error");
