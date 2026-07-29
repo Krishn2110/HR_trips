@@ -223,10 +223,14 @@ export interface HotelRegistration {
   fireSafetyNoc: string;
   cctvCamera: string;
   bankDetails: string;
-  roomPic: string;
-  receptionPic: string;
-  bathroomPic: string;
-  interiorExteriorPic: string;
+  roomPic?: string;
+  roomPics?: string[];
+  receptionPic?: string;
+  receptionPics?: string[];
+  bathroomPic?: string;
+  bathroomPics?: string[];
+  interiorExteriorPic?: string;
+  interiorExteriorPics?: string[];
   location: string;
   hotelAddress: string;
   city: string;

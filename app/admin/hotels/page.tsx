@@ -6,63 +6,7 @@ import {
   Loader2, CheckCircle2, XCircle, Mail, Phone, Calendar, Users, IndianRupee, Eye, X, DoorOpen, ShieldCheck, UserCheck, Trash2, RefreshCw, FileText, Search, CreditCard
 } from "lucide-react";
 import { getHotelRegistrations, updateHotelRegistrationStatus as updateLocalHotelRegStatus, deleteHotelRegistration as deleteLocalHotelReg } from "@/lib/api";
-
-interface RoomType {
-  name: string;
-  description: string;
-  pricePerNight: number;
-  maxGuests: number;
-  count: number;
-  image: string;
-}
-
-interface Hotel {
-  id: string | number;
-  name: string;
-  ownerName: string;
-  email: string;
-  phone: string;
-  city: string;
-  state: string;
-  location: string;
-  starRating: number;
-  startingPrice: number;
-  image: string;
-  overview: string;
-  amenities: string[];
-  roomTypes: RoomType[];
-  roomPics: string[];
-  receptionPics: string[];
-  bathroomPics: string[];
-  interiorExteriorPics: string[];
-  createdAt: string;
-}
-
-interface HotelRegistration {
-  id: string;
-  ownerName: string;
-  ownerContact: string;
-  propertyManagerName: string;
-  propertyManagerPhone: string;
-  email: string;
-  hotelName: string;
-  gst: string;
-  hotelRegistrationNumber: string;
-  fireSafetyNoc: string;
-  cctvCamera: string;
-  bankDetails: string;
-  location: string;
-  hotelAddress: string;
-  city: string;
-  state: string;
-  pincode: string;
-  roomPics: string[];
-  receptionPics: string[];
-  bathroomPics: string[];
-  interiorExteriorPics: string[];
-  status: "Pending" | "Approved" | "Rejected";
-  createdAt: string;
-}
+import { HotelRegistration } from "@/lib/types";
 
 interface HotelBooking {
   id: string | number;
@@ -803,10 +747,10 @@ export default function AdminHotelsPage() {
               <h3 className="font-bold text-ink text-sm">Property Inspection Photos</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {[
-                  { title: "Room Photo", pics: viewingReg.roomPics },
-                  { title: "Reception Photo", pics: viewingReg.receptionPics },
-                  { title: "Bathroom Photo", pics: viewingReg.bathroomPics },
-                  { title: "Interior/Exterior", pics: viewingReg.interiorExteriorPics },
+                  { title: "Room Photo", pics: viewingReg.roomPics || (viewingReg.roomPic ? [viewingReg.roomPic] : []) },
+                  { title: "Reception Photo", pics: viewingReg.receptionPics || (viewingReg.receptionPic ? [viewingReg.receptionPic] : []) },
+                  { title: "Bathroom Photo", pics: viewingReg.bathroomPics || (viewingReg.bathroomPic ? [viewingReg.bathroomPic] : []) },
+                  { title: "Interior/Exterior", pics: viewingReg.interiorExteriorPics || (viewingReg.interiorExteriorPic ? [viewingReg.interiorExteriorPic] : []) },
                 ].map((cat, idx) => (
                   <div key={idx} className="border border-border/60 rounded-xl p-3 bg-surface/40 space-y-2">
                     <span className="text-[11px] font-bold text-ink block">{cat.title}</span>
