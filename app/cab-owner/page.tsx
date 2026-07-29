@@ -181,9 +181,11 @@ export default function CabOwnerDashboardPage() {
         cache: "no-store"
       });
       const rawText = await res.text();
-      const match = rawText.match(/\{.*\}/s);
-      if (match) {
-        const result = JSON.parse(match[0]);
+      const firstBrace = rawText.indexOf('{');
+      const lastBrace = rawText.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        const jsonText = rawText.substring(firstBrace, lastBrace + 1);
+        const result = JSON.parse(jsonText);
         if (res.ok && result.status === "success") {
           setBookings(result.data || []);
         }

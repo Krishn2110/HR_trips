@@ -117,9 +117,11 @@ export default function AdminCabsPage() {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/cabs/list_registrations.php`, { cache: "no-store" });
       const rawText = await response.text();
-      const match = rawText.match(/\{.*\}/s);
-      if (match) {
-        const result = JSON.parse(match[0]);
+      const firstBrace = rawText.indexOf('{');
+      const lastBrace = rawText.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        const jsonText = rawText.substring(firstBrace, lastBrace + 1);
+        const result = JSON.parse(jsonText);
         if (response.ok && result.status === "success") setRegistrations(result.data || []);
       }
     } catch (e) {
@@ -158,18 +160,20 @@ export default function AdminCabsPage() {
       // Fetch Bookings
       const resBookings = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/cabs/bookings/list.php`, { cache: "no-store" });
       const textBookings = await resBookings.text();
-      const matchBookings = textBookings.match(/\{.*\}/s);
-      if (matchBookings) {
-        const json = JSON.parse(matchBookings[0]);
+      const fbBookings = textBookings.indexOf('{');
+      const lbBookings = textBookings.lastIndexOf('}');
+      if (fbBookings !== -1 && lbBookings !== -1) {
+        const json = JSON.parse(textBookings.substring(fbBookings, lbBookings + 1));
         if (json.status === "success") setBookings(json.data || []);
       }
 
       // Fetch Approved Cabs for Dropdown
       const resCabs = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/cabs/list_approved.php`, { cache: "no-store" });
       const textCabs = await resCabs.text();
-      const matchCabs = textCabs.match(/\{.*\}/s);
-      if (matchCabs) {
-        const json = JSON.parse(matchCabs[0]);
+      const fbCabs = textCabs.indexOf('{');
+      const lbCabs = textCabs.lastIndexOf('}');
+      if (fbCabs !== -1 && lbCabs !== -1) {
+        const json = JSON.parse(textCabs.substring(fbCabs, lbCabs + 1));
         if (json.status === "success") setApprovedCabs(json.data || []);
       }
     } catch (e) {
