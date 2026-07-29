@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { cabRegistrationSchema, type CabRegistrationFormData } from "@/lib/validators";
 import Breadcrumbs from "@/components/shared/Breadcrumbs";
+import { submitCabRegistration } from "@/lib/api";
 
 export default function CabRegistrationPage() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");

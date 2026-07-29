@@ -38,6 +38,10 @@ export interface Hotel {
   slug: string;
   name: string;
   city: string;
+  state?: string;
+  ownerName?: string;
+  email?: string;
+  phone?: string;
   location: string;
   starRating: number;
   startingPrice: number;
@@ -55,6 +59,7 @@ export interface RoomType {
   description: string;
   pricePerNight: number;
   maxGuests: number;
+  count?: number;
   image: string;
 }
 
@@ -259,7 +264,7 @@ export interface CabRegistration {
   permit: string;
   drivingLicenceNo: string;
   fireSafety: string;
-  cabType: "Commercial" | "Private";
+  cabType: string;
   // Photos / Uploads
   cabPic: string;
   interiorPic: string;
