@@ -6,7 +6,7 @@ import {
   Loader2, CheckCircle2, XCircle, Mail, Phone, Calendar, Users, IndianRupee, Eye, X, DoorOpen, ShieldCheck, UserCheck, Trash2, RefreshCw, FileText, Search, CreditCard
 } from "lucide-react";
 import { getHotelRegistrations, updateHotelRegistrationStatus as updateLocalHotelRegStatus, deleteHotelRegistration as deleteLocalHotelReg } from "@/lib/api";
-import { HotelRegistration } from "@/lib/types";
+import { Hotel, HotelRegistration } from "@/lib/types";
 
 interface HotelBooking {
   id: string | number;
