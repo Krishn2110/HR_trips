@@ -292,3 +292,43 @@ export const cabRegistrationSchema = z.object({
 });
 
 export type CabRegistrationFormData = z.infer<typeof cabRegistrationSchema>;
+
+// ── Banquet Owner Registration Schema ──────────────────────────
+export const banquetRegistrationSchema = z.object({
+  // Owner & Management Details
+  ownerName: z.string().min(2, "Owner name must be at least 2 characters"),
+  ownerContact: z.string().min(10, "Valid 10-digit owner contact required").max(15, "Contact number is too long"),
+  propertyManagerName: z.string().min(2, "Property manager name required"),
+  propertyManagerPhone: z.string().min(10, "Valid manager phone required").max(15, "Phone number is too long"),
+  email: z.string().email("Enter a valid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+
+  // Banquet Specifications & Compliance
+  banquetName: z.string().min(3, "Banquet hall name is required"),
+  gst: z.string().min(15, "GST Number must be 15 characters").max(15, "GST Number must be 15 characters"),
+  banquetRegistrationNumber: z.string().min(3, "Banquet registration number required"),
+  fireSafetyNoc: z.string().min(1, "Select Fire Safety NOC status"),
+  cctvCamera: z.string().min(1, "Select CCTV Camera status"),
+
+  // Bank Account Details
+  bankName: z.string().min(2, "Bank name is required"),
+  accountHolderName: z.string().min(2, "Account holder name is required"),
+  accountNo: z.string().min(5, "Account number must be at least 5 digits"),
+  ifscCode: z.string().min(4, "IFSC code is required"),
+
+  // Location & Address Details
+  location: z.string().min(3, "Google Maps URL or landmark required"),
+  address: z.string().min(5, "Full street address required"),
+  city: z.string().min(2, "City is required"),
+  state: z.string().min(2, "State is required"),
+  pincode: z.string().min(6, "Enter valid 6-digit pincode").max(6, "Pincode must be 6 digits"),
+
+  // Document & Photo Uploads (Base64)
+  hallPic: z.string().min(1, "Room/Hall photo is required"),
+  receptionPic: z.string().min(1, "Reception photo is required"),
+  bathroomPic: z.string().min(1, "Bathroom photo is required"),
+  interiorExteriorPic: z.string().min(1, "Interior/Exterior photo is required"),
+});
+
+export type BanquetRegistrationFormData = z.infer<typeof banquetRegistrationSchema>;
+

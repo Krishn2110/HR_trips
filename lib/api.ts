@@ -14,6 +14,8 @@ import type {
   ManpowerOption,
   HotelRegistration,
   CabRegistration,
+  BanquetRegistration,
+  BanquetBooking,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
@@ -1839,4 +1841,125 @@ export async function getCabRegistrationByEmail(
   const regs = getLocalCabRegistrations();
   return regs.find(r => r.email === email) || null;
 }
+
+// ── Banquet Registrations & Bookings (Local & Remote Fallback) ──────
+const BANQUET_REG_KEY = "hr_trips_banquet_registrations";
+const BANQUET_BOOKING_KEY = "hr_trips_banquet_bookings";
+
+export function getLocalBanquetRegistrations(): BanquetRegistration[] {
+  if (!isBrowser) return [];
+  const data = localStorage.getItem(BANQUET_REG_KEY);
+  if (!data) return [];
+  try {
+    return JSON.parse(data);
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalBanquetRegistrations(regs: BanquetRegistration[]) {
+  if (isBrowser) {
+    localStorage.setItem(BANQUET_REG_KEY, JSON.stringify(regs));
+  }
+}
+
+export async function getBanquetRegistrations(): Promise<BanquetRegistration[]> {
+  return getLocalBanquetRegistrations();
+}
+
+export async function submitBanquetRegistration(
+  data: Omit<BanquetRegistration, "id" | "status" | "createdAt">
+): Promise<BanquetRegistration> {
+  const regs = getLocalBanquetRegistrations();
+
+  const exists = regs.find(r => r.email === data.email);
+  if (exists) {
+    throw new Error("A banquet is already registered with this email address.");
+  }
+
+  const newReg: BanquetRegistration = {
+    ...data,
+    id: `banquetreg-${Math.random().toString(36).substr(2, 9)}`,
+    status: "Pending",
+    createdAt: new Date().toISOString(),
+  };
+  regs.push(newReg);
+  saveLocalBanquetRegistrations(regs);
+  return newReg;
+}
+
+export async function updateBanquetRegistrationStatus(
+  id: string,
+  status: "Pending" | "Approved" | "Rejected"
+): Promise<boolean> {
+  const regs = getLocalBanquetRegistrations();
+  const index = regs.findIndex(r => r.id === id);
+  if (index === -1) return false;
+  regs[index].status = status;
+  saveLocalBanquetRegistrations(regs);
+  return true;
+}
+
+export async function deleteBanquetRegistration(id: string): Promise<boolean> {
+  const regs = getLocalBanquetRegistrations();
+  const filtered = regs.filter(r => r.id !== id);
+  if (regs.length === filtered.length) return false;
+  saveLocalBanquetRegistrations(filtered);
+  return true;
+}
+
+export async function getBanquetRegistrationByEmail(
+  email: string
+): Promise<BanquetRegistration | null> {
+  const regs = getLocalBanquetRegistrations();
+  return regs.find(r => r.email === email) || null;
+}
+
+export function getLocalBanquetBookings(): BanquetBooking[] {
+  if (!isBrowser) return [];
+  const data = localStorage.getItem(BANQUET_BOOKING_KEY);
+  if (!data) return [];
+  try {
+    return JSON.parse(data);
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalBanquetBookings(bookings: BanquetBooking[]) {
+  if (isBrowser) {
+    localStorage.setItem(BANQUET_BOOKING_KEY, JSON.stringify(bookings));
+  }
+}
+
+export async function getBanquetBookings(): Promise<BanquetBooking[]> {
+  return getLocalBanquetBookings();
+}
+
+export async function submitBanquetBooking(
+  data: Omit<BanquetBooking, "id" | "created_at">
+): Promise<BanquetBooking> {
+  const bookings = getLocalBanquetBookings();
+  const newBooking: BanquetBooking = {
+    ...data,
+    id: `bqbook-${Math.random().toString(36).substr(2, 9)}`,
+    created_at: new Date().toISOString(),
+  };
+  bookings.push(newBooking);
+  saveLocalBanquetBookings(bookings);
+  return newBooking;
+}
+
+export async function updateBanquetBookingStatus(
+  id: string | number,
+  status: "pending" | "confirmed" | "cancelled"
+): Promise<boolean> {
+  const bookings = getLocalBanquetBookings();
+  const index = bookings.findIndex(b => String(b.id) === String(id));
+  if (index === -1) return false;
+  bookings[index].booking_status = status;
+  saveLocalBanquetBookings(bookings);
+  return true;
+}
+
 

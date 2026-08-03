@@ -295,3 +295,72 @@ export interface CabRegistration {
   createdAt: string;
 }
 
+export interface BanquetRegistration {
+  id: string;
+  // Banquet Details
+  banquetName: string;
+  gst: string;
+  banquetRegistrationNumber: string;
+  fireSafetyNoc: string;
+  cctvCamera: string;
+  // Photos / Uploads
+  hallPic?: string;
+  hallPics?: string[];
+  receptionPic?: string;
+  receptionPics?: string[];
+  bathroomPic?: string;
+  bathroomPics?: string[];
+  interiorExteriorPic?: string;
+  interiorExteriorPics?: string[];
+  // Owner & Manager Details
+  ownerName: string;
+  ownerContact: string;
+  propertyManagerName: string;
+  propertyManagerPhone: string;
+  email: string;
+  password: string;
+  phone?: string;
+  // Bank Details
+  bankName: string;
+  accountHolderName: string;
+  accountNo: string;
+  ifscCode: string;
+  bankDetails?: string;
+  // Location
+  location: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+  // Status
+  status: "Pending" | "Approved" | "Rejected";
+  createdAt: string;
+
+  // Post-approval specs
+  capacity?: number;
+  pricePerPlateVeg?: number;
+  pricePerPlateNonVeg?: number;
+  description?: string;
+  amenities?: string[];
+}
+
+export interface BanquetBooking {
+  id: string | number;
+  banquet_id: string | number;
+  banquet_name: string;
+  city: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  event_type: string;
+  event_date: string;
+  guest_count: number;
+  food_preference: string;
+  special_requests?: string;
+  total_amount: number | string;
+  payment_status: "pending" | "successful" | "refunded";
+  booking_status: "pending" | "confirmed" | "cancelled";
+  created_at: string;
+}
+
+

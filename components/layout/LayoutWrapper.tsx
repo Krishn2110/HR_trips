@@ -66,7 +66,7 @@ export default function LayoutWrapper({
   }, []);
 
   const isAdmin = pathname?.startsWith("/admin");
-  const isOwner = pathname?.startsWith("/hotel-owner") || pathname?.startsWith("/cab-owner");
+  const isOwner = pathname?.startsWith("/hotel-owner") || pathname?.startsWith("/cab-owner") || pathname?.startsWith("/banquet-owner");
 
   if (isAdmin || isOwner) {
     return (
