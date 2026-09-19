@@ -68,7 +68,7 @@ export default function AdminBanquetsPage() {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}banquets/get_catalog.php`, { cache: "no-store" });
       const rawText = await response.text();
-      const match = rawText.match(/\{.*\}/s);
+      const match = rawText.match(/\{[\s\S]*\}/);
       if (match) {
         const result = JSON.parse(match[0]);
         if (response.ok && result.status === "success") {
@@ -88,7 +88,7 @@ export default function AdminBanquetsPage() {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}banquet-bookings/list.php`, { cache: "no-store" });
       const rawText = await response.text();
-      const match = rawText.match(/\{.*\}/s);
+      const match = rawText.match(/\{[\s\S]*\}/);
       if (match) {
         const result = JSON.parse(match[0]);
         if (response.ok && result.status === "success") {
