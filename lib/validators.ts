@@ -324,10 +324,10 @@ export const banquetRegistrationSchema = z.object({
   pincode: z.string().min(6, "Enter valid 6-digit pincode").max(6, "Pincode must be 6 digits"),
 
   // Document & Photo Uploads (Base64)
-  hallPic: z.string().min(1, "Room/Hall photo is required"),
-  receptionPic: z.string().min(1, "Reception photo is required"),
-  bathroomPic: z.string().min(1, "Bathroom photo is required"),
-  interiorExteriorPic: z.string().min(1, "Interior/Exterior photo is required"),
+  hallPic: z.string().optional(),
+receptionPic: z.string().optional(),
+bathroomPic: z.string().optional(),
+interiorExteriorPic: z.string().optional(),
 });
 
 export type BanquetRegistrationFormData = z.infer<typeof banquetRegistrationSchema>;
