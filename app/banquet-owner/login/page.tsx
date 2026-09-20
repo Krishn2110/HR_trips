@@ -44,7 +44,8 @@ export default function BanquetOwnerLoginPage() {
     try {
       let remoteOk = false;
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/banquets/auth/login.php`, {
+        const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost/hrtrips/api").replace(/\/+$/, "");
+        const response = await fetch(`${apiUrl}/banquets/auth/login.php`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: email.trim(), password }),

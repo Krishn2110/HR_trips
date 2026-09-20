@@ -17,6 +17,13 @@ const getImageUrl = (path: string) => {
   return `${baseUrl}/${path.replace(/^\//, "")}`;
 };
 
+// SAFE API URL CONCATENATION HELPER
+const getApiUrl = (endpoint: string) => {
+  const base = (process.env.NEXT_PUBLIC_API_URL || "http://localhost/hrtrips/api/").replace(/\/+$/, "");
+  const path = endpoint.replace(/^\/+/, "");
+  return `${base}/${path}`;
+};
+
 // HELPER TO FORMAT AMENITIES FROM DB JSON
 const formatAmenities = (amenitiesData: any) => {
   if (!amenitiesData || amenitiesData === '[]') return "None";
@@ -66,7 +73,7 @@ export default function AdminBanquetsPage() {
   const loadBanquetsCatalog = async () => {
     setIsLoadingCatalog(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}banquets/get_catalog.php`, { cache: "no-store" });
+      const response = await fetch(getApiUrl("banquets/get_catalog.php"), { cache: "no-store" });
       const rawText = await response.text();
       const match = rawText.match(/\{[\s\S]*\}/);
       if (match) {
@@ -86,7 +93,7 @@ export default function AdminBanquetsPage() {
   const loadBookingsData = async () => {
     setIsLoadingBookings(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}banquet-bookings/list.php`, { cache: "no-store" });
+      const response = await fetch(getApiUrl("banquet-bookings/list.php"), { cache: "no-store" });
       const rawText = await response.text();
       const match = rawText.match(/\{[\s\S]*\}/);
       if (match) {
@@ -194,7 +201,7 @@ export default function AdminBanquetsPage() {
   const handleDeleteCatalog = async (id: string) => {
     if (!confirm("Are you sure you want to delete this banquet hall from the database?")) return;
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}banquets/delete_catalog.php`, {
+      const response = await fetch(getApiUrl("banquets/delete_catalog.php"), {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id })
       });
@@ -287,7 +294,7 @@ export default function AdminBanquetsPage() {
 
       newImageFiles.forEach((file) => formData.append("new_images[]", file));
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}banquets/save.php`, {
+      const response = await fetch(getApiUrl("banquets/save.php"), {
         method: "POST", body: formData, 
       });
 
@@ -306,7 +313,7 @@ export default function AdminBanquetsPage() {
   const handleApproveBanquet = async (bq: any) => {
     if (!confirm(`Approve ${bq.name} and list it on the public website?`)) return;
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}banquets/update_status.php`, {
+      const response = await fetch(getApiUrl("banquets/update_status.php"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: bq.id, status: 'Approved' }) 
@@ -324,7 +331,7 @@ export default function AdminBanquetsPage() {
   const handleRejectBanquet = async (bq: any) => {
     if (!confirm(`Reject and delete registration request for ${bq.name}?`)) return;
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}banquets/update_status.php`, {
+      const response = await fetch(getApiUrl("banquets/update_status.php"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: bq.id, status: 'Rejected' }) 
@@ -343,7 +350,7 @@ export default function AdminBanquetsPage() {
   const updateBookStatus = async (id: string | number, newStatus: string) => {
     if (!confirm(`Mark this booking as ${newStatus.toUpperCase()}?`)) return;
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}banquet-bookings/update_status.php`, {
+      await fetch(getApiUrl("banquet-bookings/update_status.php"), {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, status: newStatus })
       });
