@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MapPin, Users, ArrowRight, IndianRupee, GlassWater } from "lucide-react";
+import { MapPin, Users, ArrowRight, IndianRupee, GlassWater, CalendarClock } from "lucide-react";
 
 interface BanquetCardProps {
   banquet: {
@@ -14,6 +14,8 @@ interface BanquetCardProps {
     price_per_plate_veg?: number;
     pricePerPlateNonVeg?: number;
     price_per_plate_non_veg?: number;
+    pricePerDay?: number;
+    price_per_day?: number;
     image?: string;
     images?: string[] | string;
     description?: string;
@@ -60,6 +62,7 @@ export default function BanquetCard({ banquet }: BanquetCardProps) {
 
   const vegRate = Number(banquet.price_per_plate_veg ?? banquet.pricePerPlateVeg ?? 0);
   const nonVegRate = Number(banquet.price_per_plate_non_veg ?? banquet.pricePerPlateNonVeg ?? 0);
+  const perDayRate = Number(banquet.price_per_day ?? banquet.pricePerDay ?? 0);
   const capacity = Number(banquet.capacity || 500);
 
   return (
@@ -67,7 +70,7 @@ export default function BanquetCard({ banquet }: BanquetCardProps) {
       href={`/banquet-booking/${slug}`}
       className="group block bg-white rounded-2xl overflow-hidden border border-border/50 card-hover shadow-sm hover:shadow-md transition-all flex flex-col"
     >
-      <div className="relative h-56 img-zoom bg-surface overflow-hidden">
+      <div className="relative h-56 img-zoom bg-surface overflow-hidden shrink-0">
         <img
           src={coverImage}
           alt={banquet.name}
@@ -76,7 +79,7 @@ export default function BanquetCard({ banquet }: BanquetCardProps) {
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
         {/* Guest Capacity Badge */}
-        <div className="absolute top-3 right-3 px-3 py-1 bg-black/60 backdrop-blur-md text-white rounded-full flex items-center gap-1.5 text-xs font-bold">
+        <div className="absolute top-3 right-3 px-3 py-1 bg-black/60 backdrop-blur-md text-white rounded-full flex items-center gap-1.5 text-xs font-bold shadow-md">
           <Users className="w-3.5 h-3.5 text-primary" />
           {capacity} Guests
         </div>
@@ -124,36 +127,53 @@ export default function BanquetCard({ banquet }: BanquetCardProps) {
           )}
         </div>
 
-        {/* Pricing & CTA */}
-        <div className="pt-4 border-t border-border/50 flex items-center justify-between mt-auto">
-          <div>
-            <span className="text-[10px] text-muted uppercase font-bold tracking-wider block">
-              Veg Plate
-            </span>
-            <div className="font-heading font-bold text-base text-ink flex items-center">
-              <IndianRupee className="w-3.5 h-3.5" />
-              {vegRate.toLocaleString("en-IN")}
-              <span className="text-[10px] font-normal text-muted ml-1">/ plate</span>
-            </div>
-          </div>
-
-          {nonVegRate > 0 && (
-            <div className="text-right">
-              <span className="text-[10px] text-muted uppercase font-bold tracking-wider block">
-                Non-Veg
+        {/* Pricing & CTA Section */}
+        <div className="pt-4 border-t border-border/50 flex flex-col gap-4 mt-auto">
+          
+          {/* HIGHLIGHTED PER DAY CHARGE */}
+          {perDayRate > 0 && (
+            <div className="flex items-center justify-between bg-primary/5 border border-primary/20 rounded-xl px-3 py-2.5">
+              <span className="text-xs font-bold text-primary flex items-center gap-1.5">
+                <CalendarClock className="w-4 h-4" /> Per Day Hall Rent
               </span>
-              <div className="font-heading font-bold text-base text-ink flex items-center justify-end">
+              <div className="font-heading font-black text-sm text-primary flex items-center">
                 <IndianRupee className="w-3.5 h-3.5" />
-                {nonVegRate.toLocaleString("en-IN")}
-                <span className="text-[10px] font-normal text-muted ml-1">/ plate</span>
+                {perDayRate.toLocaleString("en-IN")}
               </div>
             </div>
           )}
 
-          <span className="flex items-center gap-1 text-primary text-xs font-bold group-hover:gap-1.5 transition-all ml-2">
-            View
-            <ArrowRight className="w-4 h-4" />
-          </span>
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-[10px] text-muted uppercase font-bold tracking-wider block">
+                Veg Plate
+              </span>
+              <div className="font-heading font-bold text-base text-ink flex items-center">
+                <IndianRupee className="w-3.5 h-3.5" />
+                {vegRate.toLocaleString("en-IN")}
+                <span className="text-[10px] font-normal text-muted ml-1">/ plate</span>
+              </div>
+            </div>
+
+            {nonVegRate > 0 ? (
+              <div className="text-right">
+                <span className="text-[10px] text-muted uppercase font-bold tracking-wider block">
+                  Non-Veg
+                </span>
+                <div className="font-heading font-bold text-base text-ink flex items-center justify-end">
+                  <IndianRupee className="w-3.5 h-3.5" />
+                  {nonVegRate.toLocaleString("en-IN")}
+                  <span className="text-[10px] font-normal text-muted ml-1">/ plate</span>
+                </div>
+              </div>
+            ) : (
+              <div className="text-right flex items-center justify-end h-full">
+                 <span className="flex items-center gap-1 text-primary text-xs font-bold group-hover:gap-1.5 transition-all">
+                  View Details <ArrowRight className="w-4 h-4" />
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </Link>

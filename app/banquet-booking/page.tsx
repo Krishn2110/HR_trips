@@ -3,7 +3,7 @@ import Link from "next/link";
 import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import BanquetCard from "@/components/banquets/BanquetCard";
 import BanquetSearchBar from "@/components/banquets/BanquetSearchBar";
-import { GlassWater, ArrowRight, UserCheck, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { GlassWater, ArrowRight, UserCheck, Sparkles, MapPin, Users, IndianRupee } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Banquet Hall Booking",
@@ -11,16 +11,15 @@ export const metadata: Metadata = {
     "Find and book luxury banquet halls, marriage lawns, and party venues for weddings, receptions, and corporate events across India with HR Trips.",
 };
 
+// 1. ROBUST IMAGE URL HELPER
 const getImageUrl = (path: string) => {
   if (!path) return "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800&q=80";
-  if (path.startsWith("http")) return path;
-  let apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost/hr/api";
-  apiUrl = apiUrl.replace(/\/$/, "");
-  if (path.startsWith('/api') && apiUrl.endsWith('/api')) {
-    apiUrl = apiUrl.substring(0, apiUrl.length - 4);
-  }
-  const safePath = path.startsWith("/") ? path : `/${path}`;
-  return `${apiUrl}${safePath}`;
+  if (path.startsWith("http") || path.startsWith("data:")) return path; 
+  
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost/hr/api";
+  const baseUrl = apiUrl;
+  
+  return `${baseUrl}/${path.replace(/^\//, "")}`;
 };
 
 async function getApprovedBanquets() {
@@ -42,11 +41,40 @@ async function getApprovedBanquets() {
     if (res.ok && result.status === "success" && Array.isArray(result.data)) {
       // Return only approved banquets
       const approved = result.data.filter((b: any) => Number(b.is_approved) === 1);
-      return approved.map((b: any) => ({
-        ...b,
-        slug: b.slug || b.id.toString(),
-        image: getImageUrl(b.image || (Array.isArray(b.images) ? b.images[0] : b.images)),
-      }));
+      
+      return approved.map((b: any) => {
+        // EXTRACT IMAGE SAFELY
+        let imagePath = "";
+        if (b.hall_pic) {
+            imagePath = b.hall_pic;
+        } else if (b.images) {
+            try {
+                const parsed = typeof b.images === "string" ? JSON.parse(b.images) : b.images;
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    imagePath = parsed[0];
+                } else if (typeof b.images === "string") {
+                    imagePath = b.images;
+                }
+            } catch {
+                imagePath = b.images;
+            }
+        } else if (b.image) {
+            imagePath = b.image;
+        }
+
+        // MAP ALL PRICING AND DATA FIELDS
+        return {
+          ...b,
+          slug: b.slug || b.id.toString(),
+          image: getImageUrl(imagePath),
+          pricePerPlateVeg: b.price_per_plate_veg || b.pricePerPlateVeg || 0,
+          pricePerPlateNonVeg: b.price_per_plate_non_veg || b.pricePerPlateNonVeg || 0,
+          pricePerDay: b.price_per_day || b.pricePerDay || 0,
+          capacity: b.capacity || 0,
+          featured: b.featured == 1 || b.featured === "1" || b.featured === true,
+          description: b.description || "",
+        };
+      });
     }
     return [];
   } catch (err) {
@@ -72,17 +100,21 @@ export default async function BanquetBookingPage({ searchParams }: PageProps) {
       const matchesName = b.name?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCity = b.city?.toLowerCase().includes(locationQuery.toLowerCase()) ||
                           b.state?.toLowerCase().includes(locationQuery.toLowerCase()) ||
-                          b.location?.toLowerCase().includes(locationQuery.toLowerCase());
+                          b.location?.toLowerCase().includes(locationQuery.toLowerCase()) ||
+                          b.address?.toLowerCase().includes(locationQuery.toLowerCase());
+                          
       const matchesCapacity = capacityQuery ? Number(b.capacity || 0) >= Number(capacityQuery) : true;
 
-      if (searchQuery && locationQuery) {
-        return matchesName && matchesCity && matchesCapacity;
-      }
-      if (searchQuery) return matchesName && matchesCapacity;
-      if (locationQuery) return matchesCity && matchesCapacity;
-      return matchesCapacity;
+      const isNameMatch = searchQuery ? matchesName : true;
+      const isLocMatch = locationQuery ? matchesCity : true;
+
+      return isNameMatch && isLocMatch && matchesCapacity;
     });
   }
+
+  // Separate Featured / Highlighted banquets from standard ones
+  const featuredBanquets = banquets.filter((b: any) => b.featured);
+  const standardBanquets = banquets.filter((b: any) => !b.featured);
 
   return (
     <>
@@ -90,10 +122,7 @@ export default async function BanquetBookingPage({ searchParams }: PageProps) {
       <div className="relative h-60 sm:h-72 flex items-end overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage:
-              "url('https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=1600&q=85')",
-          }}
+          style={{ backgroundImage: "url('https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=1600&q=85')" }}
         >
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/50 to-black/30" />
         </div>
@@ -119,12 +148,71 @@ export default async function BanquetBookingPage({ searchParams }: PageProps) {
         {/* Search Bar */}
         <BanquetSearchBar />
 
-        {/* Venues Grid */}
         <div className="mt-10">
+          {/* ================= HIGHLIGHTED / FEATURED SECTION ================= */}
+          {featuredBanquets.length > 0 && (
+            <div className="mb-12">
+              <div className="flex items-center gap-2 mb-6">
+                <Sparkles className="w-6 h-6 text-amber-500" />
+                <h2 className="font-heading font-bold text-xl sm:text-2xl text-ink">
+                  Highlighted Premium Venues
+                </h2>
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {featuredBanquets.map((banquet: any) => (
+                  <Link href={`/banquet-booking/${banquet.slug}`} key={banquet.id} className="group block bg-gradient-to-br from-amber-50 to-white border border-amber-200/60 rounded-3xl overflow-hidden shadow-lg shadow-amber-900/5 hover:shadow-xl hover:shadow-amber-900/10 transition-all">
+                    <div className="flex flex-col sm:flex-row h-full">
+                      {/* Image */}
+                      <div className="relative w-full sm:w-2/5 h-48 sm:h-auto shrink-0 overflow-hidden">
+                        <img src={banquet.image} alt={banquet.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        <div className="absolute top-3 left-3 bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full shadow-md">
+                          Featured
+                        </div>
+                      </div>
+                      
+                      {/* Content */}
+                      <div className="p-6 flex-1 flex flex-col justify-between">
+                        <div>
+                          <h3 className="font-heading font-bold text-xl text-ink group-hover:text-primary transition-colors line-clamp-1">
+                            {banquet.name}
+                          </h3>
+                          <p className="text-muted text-xs flex items-center gap-1 mt-1.5 line-clamp-1">
+                            <MapPin className="w-3.5 h-3.5 text-primary shrink-0" /> {banquet.city}, {banquet.state}
+                          </p>
+                          <p className="text-xs text-ink/70 mt-3 line-clamp-2 leading-relaxed">
+                            {banquet.description || "Premium air-conditioned banquet hall perfect for weddings, corporate events, and grand celebrations."}
+                          </p>
+                        </div>
+                        
+                        <div className="mt-5 pt-4 border-t border-amber-200/50 flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
+                            <Users className="w-4 h-4 text-primary" /> {banquet.capacity} Guests
+                          </div>
+                          
+                          {/* HIGHLIGHTED PER DAY CHARGES */}
+                          <div className="bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 rounded-xl flex items-center gap-1.5 font-bold shadow-sm">
+                            <IndianRupee className="w-4 h-4" /> 
+                            {banquet.pricePerDay > 0 ? (
+                              <span className="text-sm">{Number(banquet.pricePerDay).toLocaleString("en-IN")} <span className="text-[10px] font-semibold text-primary/70">/ Day Rent</span></span>
+                            ) : (
+                              <span className="text-sm">Price on Request</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ================= REGULAR VENUES GRID ================= */}
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="font-heading font-bold text-xl sm:text-2xl text-ink">
-                Verified Banquet Halls
+                All Verified Banquet Halls
               </h2>
               <p className="text-muted text-xs mt-0.5">
                 Showing {banquets.length} active venue{banquets.length === 1 ? "" : "s"}
@@ -134,7 +222,8 @@ export default async function BanquetBookingPage({ searchParams }: PageProps) {
 
           {banquets.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {banquets.map((banquet: any) => (
+              {/* Map all non-featured standard banquets */}
+              {(standardBanquets.length > 0 ? standardBanquets : banquets).map((banquet: any) => (
                 <BanquetCard key={banquet.id} banquet={banquet} />
               ))}
             </div>

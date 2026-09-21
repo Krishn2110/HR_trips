@@ -13,7 +13,7 @@ const getImageUrl = (path: string) => {
   if (!path) return "";
   if (path.startsWith("http") || path.startsWith("data:")) return path; 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost/hrtrips/api/";
-  const baseUrl = apiUrl.replace(/\/api\/?$/, "");
+  const baseUrl = apiUrl.replace(/\/+$/, "");
   return `${baseUrl}/${path.replace(/^\//, "")}`;
 };
 
@@ -65,6 +65,8 @@ export default function AdminBanquetsPage() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [isLoadingBookings, setIsLoadingBookings] = useState(false);
   const [bookingsSearchQuery, setBookingsSearchQuery] = useState("");
+  const [editingBooking, setEditingBooking] = useState<any | null>(null);
+  const [isSavingBooking, setIsSavingBooking] = useState(false);
 
   // Lightbox
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
@@ -120,7 +122,6 @@ export default function AdminBanquetsPage() {
     else loadBanquetsCatalog();
   }, [activeTab]);
 
-
   // ================= DATA SPLITTING (Approved vs Pending) =================
   const approvedBanquets = banquets.filter(b => Number(b.is_approved) === 1);
   const pendingBanquets = banquets.filter(b => Number(b.is_approved) === 0);
@@ -133,12 +134,11 @@ export default function AdminBanquetsPage() {
   const filteredBooks = bookings.filter(b => (b.customer_name || "").toLowerCase().includes(bookingsSearchQuery.toLowerCase()));
   const totalRevenue = filteredBooks.filter(b => b.booking_status === "confirmed").reduce((s, b) => s + (Number(b.total_amount) || 0), 0);
 
-
   // ================= MODAL & FORM ACTIONS =================
   const openAddModal = () => {
     setCurrentBq({
       name: "", location: "", address: "", city: "", state: "", pincode: "", 
-      capacity: 500, pricePerPlateVeg: 800, pricePerPlateNonVeg: 1000,
+      capacity: 500, pricePerPlateVeg: 800, pricePerPlateNonVeg: 1000, pricePerDay: 0,
       description: "", amenities: ["AC Hall", "Decor", "Parking"], featured: false, is_approved: true,
       owner_name: "", owner_phone: "", property_manager_name: "", property_manager_phone: "", email: "",
       gst: "", banquet_registration_number: "", fire_safety_noc: "Yes", cctv_camera: "Available",
@@ -152,7 +152,6 @@ export default function AdminBanquetsPage() {
   };
 
   const openEditModal = (bq: any) => {
-    // Safely parse amenities if it's a string
     let parsedAmenities = bq.amenities;
     if (typeof parsedAmenities === "string") {
       try { parsedAmenities = JSON.parse(parsedAmenities); } catch { parsedAmenities = [parsedAmenities]; }
@@ -163,6 +162,7 @@ export default function AdminBanquetsPage() {
       ...bq,
       pricePerPlateVeg: bq.price_per_plate_veg || bq.pricePerPlateVeg || 0,
       pricePerPlateNonVeg: bq.price_per_plate_non_veg || bq.pricePerPlateNonVeg || 0,
+      pricePerDay: bq.price_per_day || bq.pricePerDay || 0,
       featured: Boolean(Number(bq.featured)),
       is_approved: Boolean(Number(bq.is_approved)),
       owner_name: bq.owner_name || "",
@@ -212,7 +212,6 @@ export default function AdminBanquetsPage() {
     } catch { alert("Failed to delete banquet hall"); }
   };
 
-  // Image Upload Handlers
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     setNewImageFiles(prev => [...prev, ...files]);
@@ -234,13 +233,12 @@ export default function AdminBanquetsPage() {
     const { name, value, type } = e.target;
     let targetValue: any = value;
     if (type === "checkbox") targetValue = (e.target as HTMLInputElement).checked;
-    else if (name === "pricePerPlateVeg" || name === "pricePerPlateNonVeg" || name === "capacity") {
+    else if (name === "pricePerPlateVeg" || name === "pricePerPlateNonVeg" || name === "pricePerDay" || name === "capacity") {
       targetValue = value ? Number(value) : 0;
     }
     setCurrentBq((prev: any) => prev ? { ...prev, [name]: targetValue } : null);
   };
 
-  // --- SUBMIT FULL CATALOG FORM ---
   const handleCatalogSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs: Record<string, string> = {};
@@ -265,30 +263,26 @@ export default function AdminBanquetsPage() {
       formData.append("city", currentBq.city || "");
       formData.append("state", currentBq.state || "");
       formData.append("pincode", currentBq.pincode || "");
-
       formData.append("capacity", String(currentBq.capacity || 0));
       formData.append("price_per_plate_veg", String(currentBq.pricePerPlateVeg || 0));
       formData.append("price_per_plate_non_veg", String(currentBq.pricePerPlateNonVeg || 0));
+      formData.append("price_per_day", String(currentBq.pricePerDay || 0));
       formData.append("description", currentBq.description || "");
       formData.append("featured", currentBq.featured ? "1" : "0");
       formData.append("is_approved", currentBq.is_approved ? "1" : "0");
-      
       formData.append("owner_name", currentBq.owner_name || "");
       formData.append("owner_phone", currentBq.owner_phone || "");
       formData.append("property_manager_name", currentBq.property_manager_name || "");
       formData.append("property_manager_phone", currentBq.property_manager_phone || "");
       formData.append("email", currentBq.email || "");
-
       formData.append("gst", currentBq.gst || "");
       formData.append("banquet_registration_number", currentBq.banquet_registration_number || "");
       formData.append("fire_safety_noc", currentBq.fire_safety_noc || "");
       formData.append("cctv_camera", currentBq.cctv_camera || "");
-
       formData.append("bank_name", currentBq.bank_name || "");
       formData.append("account_holder_name", currentBq.account_holder_name || "");
       formData.append("account_number", currentBq.account_number || "");
       formData.append("ifsc_code", currentBq.ifsc_code || "");
-      
       formData.append("amenities", JSON.stringify(currentBq.amenities || []));
       formData.append("existing_images", JSON.stringify(existingImages));
 
@@ -309,22 +303,17 @@ export default function AdminBanquetsPage() {
     }
   };
 
-  // --- APPROVE & REJECT PENDING REQUESTS ---
   const handleApproveBanquet = async (bq: any) => {
     if (!confirm(`Approve ${bq.name} and list it on the public website?`)) return;
     try {
       const response = await fetch(getApiUrl("banquets/update_status.php"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: bq.id, status: 'Approved' }) 
       });
-
       if (response.ok) {
         await loadBanquetsCatalog();
         setViewingReg(null);
-      } else {
-        alert("Failed to approve banquet");
-      }
+      } else { alert("Failed to approve banquet"); }
     } catch { alert("Network error"); }
   };
 
@@ -332,21 +321,16 @@ export default function AdminBanquetsPage() {
     if (!confirm(`Reject and delete registration request for ${bq.name}?`)) return;
     try {
       const response = await fetch(getApiUrl("banquets/update_status.php"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: bq.id, status: 'Rejected' }) 
       });
-
       if (response.ok) {
         setBanquets(prev => prev.filter(b => b.id !== bq.id));
         setViewingReg(null);
-      } else {
-        alert("Failed to reject banquet");
-      }
+      } else { alert("Failed to reject banquet"); }
     } catch { alert("Network error"); }
   };
 
-  // --- BOOKING STATUS ---
   const updateBookStatus = async (id: string | number, newStatus: string) => {
     if (!confirm(`Mark this booking as ${newStatus.toUpperCase()}?`)) return;
     try {
@@ -356,6 +340,39 @@ export default function AdminBanquetsPage() {
       });
       setBookings(prev => prev.map(b => String(b.id) === String(id) ? { ...b, booking_status: newStatus } : b));
     } catch { alert("Failed to update status"); }
+  };
+
+  // --- EDIT BOOKING HANDLERS ---
+  const handleEditBookingChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEditingBooking((prev: any) => ({
+      ...prev,
+      [name]: name === "guest_count" || name === "total_amount" ? Number(value) : value,
+    }));
+  };
+
+  const handleEditBookingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingBooking(true);
+    try {
+      const response = await fetch(getApiUrl("banquet-bookings/update.php"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editingBooking)
+      });
+      const result = await response.json();
+      
+      if (response.ok && result.status === "success") {
+        await loadBookingsData();
+        setEditingBooking(null);
+      } else {
+        alert(result.message || "Failed to update booking.");
+      }
+    } catch (err) {
+      alert("Network error updating booking.");
+    } finally {
+      setIsSavingBooking(false);
+    }
   };
 
   const getBqCoverImage = (bq: any) => {
@@ -387,17 +404,17 @@ export default function AdminBanquetsPage() {
       {/* Tabs Layout */}
       <div className="flex border-b border-border/40 gap-6 mb-6 overflow-x-auto whitespace-nowrap">
         <button onClick={() => setActiveTab("catalog")} className={`pb-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${activeTab === "catalog" ? "border-primary text-primary" : "border-transparent text-muted hover:text-ink"}`}>
-          Approved Banquets Inventory ({approvedBanquets.length})
+          Approved Banquets ({approvedBanquets.length})
         </button>
         <button onClick={() => setActiveTab("registrations")} className={`pb-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${activeTab === "registrations" ? "border-primary text-primary" : "border-transparent text-muted hover:text-ink"}`}>
           Registration Requests ({pendingBanquets.length})
         </button>
         <button onClick={() => setActiveTab("bookings")} className={`pb-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${activeTab === "bookings" ? "border-primary text-primary" : "border-transparent text-muted hover:text-ink"}`}>
-          Master Banquet Bookings ({bookings.length})
+          Master Bookings ({bookings.length})
         </button>
       </div>
 
-      {/* ================= TAB 1: APPROVED CATALOG INVENTORY ================= */}
+      {/* ================= TAB 1: APPROVED CATALOG ================= */}
       {activeTab === "catalog" && (
         <>
           {isLoadingCatalog ? (
@@ -428,11 +445,14 @@ export default function AdminBanquetsPage() {
                       <p className="text-xs text-muted flex items-center gap-1 mt-1 truncate"><MapPin className="w-3.5 h-3.5 text-primary shrink-0" /> {bq.location}</p>
                     </div>
                     
-                    {/* UPDATED: Show all details in the approved card grid */}
                     <div className="grid grid-cols-2 gap-y-3 gap-x-2 mt-4 pt-3 border-t border-border/40 text-xs">
                       <div>
                         <span className="text-[10px] text-muted uppercase font-bold block mb-0.5">Capacity</span>
                         <span className="font-bold text-ink flex items-center gap-1"><Users className="w-3.5 h-3.5 text-primary" /> {bq.capacity} Guests</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-muted uppercase font-bold block mb-0.5">Per Day Rent</span>
+                        <span className="font-bold text-ink flex items-center">{bq.price_per_day > 0 ? <><IndianRupee className="w-3 h-3"/>{bq.price_per_day}</> : "N/A"}</span>
                       </div>
                       <div>
                         <span className="text-[10px] text-muted uppercase font-bold block mb-0.5">Veg Plate</span>
@@ -442,7 +462,7 @@ export default function AdminBanquetsPage() {
                         <span className="text-[10px] text-muted uppercase font-bold block mb-0.5">Non-Veg Plate</span>
                         <span className="font-bold text-ink flex items-center">{bq.price_per_plate_non_veg > 0 ? <><IndianRupee className="w-3 h-3"/>{bq.price_per_plate_non_veg}</> : "N/A"}</span>
                       </div>
-                      <div className="col-span-1">
+                      <div className="col-span-2">
                         <span className="text-[10px] text-muted uppercase font-bold block mb-0.5">Amenities</span>
                         <span className="font-bold text-ink truncate block" title={formatAmenities(bq.amenities)}>{formatAmenities(bq.amenities)}</span>
                       </div>
@@ -464,7 +484,7 @@ export default function AdminBanquetsPage() {
         </>
       )}
 
-      {/* ================= TAB 2: PENDING REGISTRATION REQUESTS ================= */}
+      {/* ================= TAB 2: PENDING REGISTRATIONS ================= */}
       {activeTab === "registrations" && (
         <div className="space-y-6">
            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-border/50 shadow-sm">
@@ -550,345 +570,6 @@ export default function AdminBanquetsPage() {
         </div>
       )}
 
-      {/* ================= REGISTRATION REVIEW DETAILS MODAL ================= */}
-      {viewingReg && (
-        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-8 space-y-6 relative">
-            
-            {/* Header */}
-            <div className="flex items-start justify-between border-b border-border pb-4">
-              <div>
-                <h2 className="font-heading font-bold text-xl text-ink">Review: {viewingReg.name}</h2>
-                <p className="text-muted text-xs mt-1">Submitted on {new Date(viewingReg.created_at).toLocaleString()}</p>
-              </div>
-              <button onClick={() => setViewingReg(null)} className="p-2 hover:bg-surface rounded-xl text-muted hover:text-ink cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Action Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-4 bg-surface p-4 rounded-2xl border border-border/60">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-muted">Current Status:</span>
-                <span className="px-3 py-1 rounded-xl text-xs font-bold border bg-amber-50 text-amber-700 border-amber-200">
-                  Pending Approval
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => handleApproveBanquet(viewingReg)} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-md flex items-center gap-1.5 cursor-pointer">
-                  <CheckCircle2 className="w-4 h-4" /> Approve Banquet
-                </button>
-                <button onClick={() => handleRejectBanquet(viewingReg)} className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs shadow-md flex items-center gap-1.5 cursor-pointer">
-                  <XCircle className="w-4 h-4" /> Reject Request
-                </button>
-              </div>
-            </div>
-
-            {/* Information Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
-              
-              {/* NEW BOX: Banquet Specs & Pricing */}
-              <div className="bg-surface/50 border border-border/60 rounded-2xl p-5 space-y-2">
-                <h3 className="font-bold text-ink text-sm border-b border-border/40 pb-2 flex items-center gap-1.5">
-                  <GlassWater className="w-4 h-4 text-primary" /> Banquet Specs & Pricing
-                </h3>
-                <p><strong className="text-ink">Capacity:</strong> {viewingReg.capacity} Guests</p>
-                <p><strong className="text-ink">Veg Plate Rate:</strong> ₹{viewingReg.price_per_plate_veg}</p>
-                <p><strong className="text-ink">Non-Veg Plate Rate:</strong> {viewingReg.price_per_plate_non_veg > 0 ? `₹${viewingReg.price_per_plate_non_veg}` : "N/A"}</p>
-                <p className="flex items-start gap-1">
-                  <strong className="text-ink shrink-0">Amenities:</strong> 
-                  <span className="leading-relaxed">{formatAmenities(viewingReg.amenities)}</span>
-                </p>
-              </div>
-
-              {/* Owner & Management */}
-              <div className="bg-surface/50 border border-border/60 rounded-2xl p-5 space-y-2">
-                <h3 className="font-bold text-ink text-sm border-b border-border/40 pb-2 flex items-center gap-1.5"><UserCheck className="w-4 h-4 text-primary" /> Owner & Management</h3>
-                <p><strong className="text-ink">Owner:</strong> {viewingReg.owner_name} ({viewingReg.owner_phone})</p>
-                <p><strong className="text-ink">Manager:</strong> {viewingReg.property_manager_name} ({viewingReg.property_manager_phone})</p>
-                <p><strong className="text-ink">Email ID:</strong> {viewingReg.email}</p>
-                <p><strong className="text-ink">Full Address:</strong> {viewingReg.address}, {viewingReg.city}, {viewingReg.state} - {viewingReg.pincode}</p>
-                <p><strong className="text-ink">Map / Landmark:</strong> {viewingReg.location}</p>
-              </div>
-
-              {/* Registration & Compliance */}
-              <div className="bg-surface/50 border border-border/60 rounded-2xl p-5 space-y-2">
-                <h3 className="font-bold text-ink text-sm border-b border-border/40 pb-2 flex items-center gap-1.5"><ShieldCheck className="w-4 h-4 text-primary" /> Registration & Compliance</h3>
-                <p><strong className="text-ink">GST Number:</strong> {viewingReg.gst}</p>
-                <p><strong className="text-ink">Reg No:</strong> {viewingReg.banquet_registration_number}</p>
-                <p><strong className="text-ink">Fire NOC:</strong> {viewingReg.fire_safety_noc}</p>
-                <p><strong className="text-ink">CCTV Camera:</strong> {viewingReg.cctv_camera}</p>
-              </div>
-
-              {/* Payout Bank Details */}
-              <div className="bg-surface/50 border border-border/60 rounded-2xl p-5 space-y-2">
-                <h3 className="font-bold text-ink text-sm border-b border-border/40 pb-2 flex items-center gap-1.5"><CreditCard className="w-4 h-4 text-primary" /> Payout Bank Details</h3>
-                <p><strong className="text-ink">Bank Name:</strong> {viewingReg.bank_name}</p>
-                <p><strong className="text-ink">Account Holder:</strong> {viewingReg.account_holder_name}</p>
-                <p><strong className="text-ink">Account No:</strong> {viewingReg.account_number}</p>
-                <p><strong className="text-ink">IFSC Code:</strong> {viewingReg.ifsc_code}</p>
-              </div>
-            </div>
-
-            {/* Inspection Photos based on the unified DB schema */}
-            <div className="space-y-3 pt-4 border-t border-border">
-              <h3 className="font-bold text-ink text-sm">Inspection Photos</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {[
-                  { title: "Hall Photo", pic: viewingReg.hall_pic },
-                  { title: "Reception", pic: viewingReg.reception_pic },
-                  { title: "Bathroom", pic: viewingReg.bathroom_pic },
-                  { title: "Exterior", pic: viewingReg.interior_exterior_pic },
-                ].map((cat, idx) => (
-                  <div key={idx} className="border border-border/60 rounded-xl p-3 bg-surface/40 space-y-2">
-                    <span className="text-[11px] font-bold text-ink block">{cat.title}</span>
-                    {cat.pic ? (
-                      <div onClick={() => setLightboxImg(getImageUrl(cat.pic))} className="relative group h-28 rounded-lg overflow-hidden border border-border bg-black/5 cursor-pointer">
-                        <img src={getImageUrl(cat.pic)} alt={cat.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
-                          <Eye className="w-3.5 h-3.5" /> Preview
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="h-28 rounded-lg border border-dashed border-border flex items-center justify-center text-muted text-[11px]">No photo</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* COMMON CATALOG ADD / EDIT MODAL FOR BOTH TABS */}
-      {modalOpen && currentBq && (
-        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 space-y-6 shadow-2xl relative max-h-[95vh] flex flex-col">
-            <div className="flex items-center justify-between border-b border-border pb-4 shrink-0">
-              <h2 className="font-heading font-bold text-xl text-ink">
-                {currentBq.id ? "Edit Banquet Hall Details" : "Add New Banquet Hall"}
-              </h2>
-              <button onClick={() => setModalOpen(false)} className="p-2 hover:bg-surface rounded-xl text-muted hover:text-ink cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCatalogSubmit} className="space-y-6 text-xs overflow-y-auto pr-2 pb-4">
-              
-              {/* IMAGE UPLOAD SECTION */}
-              <div className="bg-surface/30 p-4 rounded-xl border border-border/50">
-                <label className="block font-bold text-ink mb-3 text-sm">Banquet Image Gallery *</label>
-                <div className="flex flex-wrap gap-4">
-                  {existingImages.map((img, idx) => (
-                    <div key={`ext-${idx}`} className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl border border-border overflow-hidden group">
-                      <img src={getImageUrl(img)} alt="preview" className="w-full h-full object-cover" />
-                      <button type="button" onClick={() => removeExistingImage(idx)} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
-                  {newImageFiles.map((file, idx) => (
-                    <div key={`new-${idx}`} className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl border border-primary/40 overflow-hidden group">
-                      <img src={URL.createObjectURL(file)} alt="preview" className="w-full h-full object-cover" />
-                      <div className="absolute top-1 left-1 bg-primary text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">NEW</div>
-                      <button type="button" onClick={() => removeNewImage(idx)} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
-                  <label className="w-24 h-24 sm:w-28 sm:h-28 flex flex-col items-center justify-center border-2 border-dashed border-primary/50 text-primary hover:bg-primary/5 rounded-xl cursor-pointer transition-colors bg-white">
-                    <UploadCloud className="w-6 h-6 mb-1" />
-                    <span className="text-[10px] font-bold text-center px-2">Add Files</span>
-                    <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageSelect} />
-                  </label>
-                </div>
-                {catalogErrors.images && <p className="text-rose-500 text-[11px] font-semibold mt-2">{catalogErrors.images}</p>}
-              </div>
-
-              {/* SECTION 1: BASIC DETAILS */}
-              <div className="bg-surface/30 p-4 rounded-xl border border-border/50 space-y-4">
-                <h3 className="font-bold text-ink text-sm border-b border-border/60 pb-2">Basic Details & Pricing</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-semibold text-muted mb-1">Banquet Name *</label>
-                    <input type="text" name="name" value={currentBq.name || ""} onChange={handleInputChange} placeholder="e.g. Royal Palace Banquet" className="w-full px-4 py-2.5 bg-white rounded-xl border border-border focus:border-primary outline-none" />
-                    {catalogErrors.name && <p className="text-rose-500 text-[10px] mt-0.5">{catalogErrors.name}</p>}
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-muted mb-1">Seating Capacity *</label>
-                    <input type="number" name="capacity" value={currentBq.capacity || 0} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-white rounded-xl border border-border focus:border-primary outline-none" />
-                    {catalogErrors.capacity && <p className="text-rose-500 text-[10px] mt-0.5">{catalogErrors.capacity}</p>}
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-muted mb-1">Veg Plate Rate (₹) *</label>
-                    <input type="number" name="pricePerPlateVeg" value={currentBq.pricePerPlateVeg || 0} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-white rounded-xl border border-border focus:border-primary outline-none" />
-                    {catalogErrors.pricePerPlateVeg && <p className="text-rose-500 text-[10px] mt-0.5">{catalogErrors.pricePerPlateVeg}</p>}
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-muted mb-1">Non-Veg Plate Rate (₹)</label>
-                    <input type="number" name="pricePerPlateNonVeg" value={currentBq.pricePerPlateNonVeg || 0} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-white rounded-xl border border-border focus:border-primary outline-none" />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block font-semibold text-muted mb-1">Description</label>
-                    <textarea name="description" rows={3} value={currentBq.description || ""} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-white rounded-xl border border-border focus:border-primary outline-none resize-none" />
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION 2: LOCATION DETAILS */}
-              <div className="bg-surface/30 p-4 rounded-xl border border-border/50 space-y-4">
-                <h3 className="font-bold text-ink text-sm border-b border-border/60 pb-2">Location Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
-                    <label className="block font-semibold text-muted mb-1">Google Maps Link / Landmark *</label>
-                    <input type="text" name="location" value={currentBq.location || ""} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-white rounded-xl border border-border focus:border-primary outline-none" />
-                    {catalogErrors.location && <p className="text-rose-500 text-[10px] mt-0.5">{catalogErrors.location}</p>}
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block font-semibold text-muted mb-1">Full Street Address</label>
-                    <textarea name="address" rows={2} value={currentBq.address || ""} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-white rounded-xl border border-border focus:border-primary outline-none resize-none" />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-muted mb-1">City</label>
-                    <input type="text" name="city" value={currentBq.city || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none" />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-muted mb-1">State</label>
-                    <input type="text" name="state" value={currentBq.state || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none" />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-muted mb-1">Pincode</label>
-                    <input type="text" name="pincode" value={currentBq.pincode || ""} onChange={handleInputChange} maxLength={6} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none font-mono" />
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION 3: OWNER & BANK DETAILS */}
-              <div className="bg-surface/30 p-4 rounded-xl border border-border/50 space-y-4">
-                <h3 className="font-bold text-ink text-sm border-b border-border/60 pb-2">Owner & Contact Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-semibold text-muted mb-1">Owner Name</label>
-                    <input type="text" name="owner_name" value={currentBq.owner_name || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none" />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-muted mb-1">Owner Phone</label>
-                    <input type="text" name="owner_phone" value={currentBq.owner_phone || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none" />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-muted mb-1">Property Manager Name</label>
-                    <input type="text" name="property_manager_name" value={currentBq.property_manager_name || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none" />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-muted mb-1">Property Manager Phone</label>
-                    <input type="text" name="property_manager_phone" value={currentBq.property_manager_phone || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none" />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block font-semibold text-muted mb-1">Registered Email ID</label>
-                    <input type="email" name="email" value={currentBq.email || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none" />
-                  </div>
-                </div>
-
-                <h3 className="font-bold text-ink text-sm border-b border-border/60 pb-2 mt-6">Payout Bank Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-semibold text-muted mb-1">Bank Name</label>
-                    <input type="text" name="bank_name" value={currentBq.bank_name || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none" />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-muted mb-1">Account Holder Name</label>
-                    <input type="text" name="account_holder_name" value={currentBq.account_holder_name || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none" />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-muted mb-1">Account Number</label>
-                    <input type="text" name="account_number" value={currentBq.account_number || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none font-mono" />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-muted mb-1">IFSC Code</label>
-                    <input type="text" name="ifsc_code" value={currentBq.ifsc_code || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none font-mono uppercase" />
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION 4: COMPLIANCE DETAILS */}
-              <div className="bg-surface/30 p-4 rounded-xl border border-border/50 space-y-4">
-                <h3 className="font-bold text-ink text-sm border-b border-border/60 pb-2">Compliance & Licenses</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-semibold text-muted mb-1">GST Number</label>
-                    <input type="text" name="gst" value={currentBq.gst || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none font-mono" />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-muted mb-1">Banquet Registration No.</label>
-                    <input type="text" name="banquet_registration_number" value={currentBq.banquet_registration_number || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none" />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-muted mb-1">Fire Safety NOC</label>
-                    <select name="fire_safety_noc" value={currentBq.fire_safety_noc || "Yes"} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none">
-                      <option value="Yes">Yes (NOC Issued)</option>
-                      <option value="No">No</option>
-                      <option value="In Process">In Process</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-muted mb-1">CCTV Camera Setup</label>
-                    <select name="cctv_camera" value={currentBq.cctv_camera || "Available"} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none">
-                      <option value="Available">Available (Full Coverage)</option>
-                      <option value="Not Available">Not Available</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* AMENITIES SECTION */}
-              <div className="bg-surface/30 p-4 rounded-xl border border-border/50">
-                <label className="block font-bold text-ink text-sm border-b border-border/60 pb-2 mb-3">Amenities List</label>
-                <div className="flex items-center gap-2 mb-3">
-                  <input 
-                    type="text" 
-                    value={amenityInput}
-                    onChange={(e) => setAmenityInput(e.target.value)}
-                    onKeyDown={(e) => { if(e.key === 'Enter') { e.preventDefault(); handleAddAmenity(); }}}
-                    placeholder="e.g. Valet Parking, DJ, AC"
-                    className="flex-1 px-4 py-2.5 bg-white rounded-xl border border-border focus:border-primary outline-none"
-                  />
-                  <button type="button" onClick={handleAddAmenity} className="px-4 py-2.5 bg-ink text-white font-bold rounded-xl cursor-pointer hover:bg-ink-light">
-                    Add
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {(currentBq?.amenities || []).map((am: string, idx: number) => (
-                    <span key={idx} className="bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5">
-                      {am}
-                      <X className="w-3.5 h-3.5 cursor-pointer hover:text-red-500" onClick={() => handleRemoveAmenity(idx)} />
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* VISIBILITY SETTINGS */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-6 pt-3 pb-2 bg-surface/30 p-4 rounded-xl border border-border/50">
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" id="is_approved" name="is_approved" checked={currentBq.is_approved || false} onChange={handleInputChange} className="w-4 h-4 rounded text-primary border-border cursor-pointer" />
-                  <label htmlFor="is_approved" className="font-bold text-emerald-600 cursor-pointer text-xs">Approved (Visible on Public Website)</label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" id="featured" name="featured" checked={currentBq.featured || false} onChange={handleInputChange} className="w-4 h-4 rounded text-primary border-border cursor-pointer" />
-                  <label htmlFor="featured" className="font-bold text-amber-600 cursor-pointer text-xs">Mark as Featured Listing</label>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-border flex items-center justify-end gap-3 sticky bottom-0 bg-white">
-                <button type="button" disabled={isSaving} onClick={() => setModalOpen(false)} className="px-5 py-2.5 border border-border text-ink rounded-xl font-semibold hover:bg-surface cursor-pointer">Cancel</button>
-                <button type="submit" disabled={isSaving} className="px-6 py-2.5 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold cursor-pointer shadow-lg shadow-primary/20 flex items-center gap-1.5 disabled:opacity-70">
-                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {isSaving ? "Saving..." : "Save Banquet"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* ================= TAB 3: MASTER BOOKINGS ================= */}
       {activeTab === "bookings" && (
         <div className="space-y-6">
@@ -942,8 +623,8 @@ export default function AdminBanquetsPage() {
                     <th className="px-6 py-4">Booking ID & Customer</th>
                     <th className="px-6 py-4">Banquet Venue</th>
                     <th className="px-6 py-4">Event Details</th>
-                    <th className="px-6 py-4">Total Amount</th>
-                    <th className="px-6 py-4 text-center">Status</th>
+                    <th className="px-6 py-4">Amount & Payment</th>
+                    <th className="px-6 py-4 text-center">Booking Status</th>
                     <th className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -974,6 +655,15 @@ export default function AdminBanquetsPage() {
                           <IndianRupee className="w-3.5 h-3.5"/>
                           {b.total_amount ? Number(b.total_amount).toLocaleString("en-IN") : "0"}
                         </span>
+                        {/* PAYMENT STATUS DISPLAY */}
+                        <span className={`text-[9px] uppercase font-bold tracking-wider mt-1 block ${
+                          b.payment_status === 'paid' ? 'text-green-600' : 
+                          b.payment_status === 'failed' ? 'text-rose-600' : 
+                          b.payment_status === 'refunded' ? 'text-purple-600' : 
+                          'text-amber-600'
+                        }`}>
+                          Pay: {b.payment_status || 'Pending'}
+                        </span>
                       </td>
                       <td className="px-6 py-4 text-center">
                         <select
@@ -991,11 +681,11 @@ export default function AdminBanquetsPage() {
                         </select>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        {b.booking_status !== "cancelled" && (
-                          <button onClick={() => updateBookStatus(b.id, "cancelled")} className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-colors cursor-pointer">
-                            Cancel Booking
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button onClick={() => setEditingBooking(b)} className="px-3 py-1.5 bg-surface hover:bg-blue-50 text-ink border border-border rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer" title="Edit Booking">
+                            <Edit2 className="w-3.5 h-3.5" /> Edit
                           </button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1003,6 +693,435 @@ export default function AdminBanquetsPage() {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ================= EDIT BOOKING MODAL ================= */}
+      {editingBooking && (
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-2xl relative">
+            <div className="flex items-center justify-between border-b border-border pb-4">
+              <div>
+                <h2 className="font-heading font-bold text-xl text-ink">Edit Booking #{editingBooking.id}</h2>
+                <p className="text-xs text-muted mt-1">Update customer details, event info, and billing for {editingBooking.banquet_name}.</p>
+              </div>
+              <button onClick={() => setEditingBooking(null)} className="p-2 hover:bg-surface rounded-xl text-muted hover:text-ink cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditBookingSubmit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-semibold text-muted mb-1">Customer Name *</label>
+                  <input type="text" name="customer_name" required value={editingBooking.customer_name || ""} onChange={handleEditBookingChange} className="w-full px-4 py-2.5 bg-surface rounded-xl border border-border focus:border-primary outline-none" />
+                </div>
+                <div>
+                  <label className="block font-semibold text-muted mb-1">Customer Phone *</label>
+                  <input type="tel" name="customer_phone" required value={editingBooking.customer_phone || ""} onChange={handleEditBookingChange} className="w-full px-4 py-2.5 bg-surface rounded-xl border border-border focus:border-primary outline-none" />
+                </div>
+                <div>
+                  <label className="block font-semibold text-muted mb-1">Customer Email</label>
+                  <input type="email" name="customer_email" value={editingBooking.customer_email || ""} onChange={handleEditBookingChange} className="w-full px-4 py-2.5 bg-surface rounded-xl border border-border focus:border-primary outline-none" />
+                </div>
+                <div>
+                  <label className="block font-semibold text-muted mb-1">Booking Status *</label>
+                  <select name="booking_status" required value={editingBooking.booking_status} onChange={handleEditBookingChange} className="w-full px-4 py-2.5 bg-surface rounded-xl border border-border focus:border-primary outline-none cursor-pointer">
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-border/40 pt-4">
+                <div>
+                  <label className="block font-semibold text-muted mb-1">Event Type *</label>
+                  <select name="event_type" required value={editingBooking.event_type} onChange={handleEditBookingChange} className="w-full px-4 py-2.5 bg-surface rounded-xl border border-border focus:border-primary outline-none cursor-pointer">
+                    <option value="Marriage / Wedding">Marriage / Wedding</option>
+                    <option value="Reception Party">Reception Party</option>
+                    <option value="Engagement Ceremony">Engagement Ceremony</option>
+                    <option value="Birthday Party">Birthday Party</option>
+                    <option value="Anniversary Celebration">Anniversary Celebration</option>
+                    <option value="Corporate Seminar / Conference">Corporate Seminar / Conference</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-muted mb-1">Event Date *</label>
+                  <input type="date" name="event_date" required value={editingBooking.event_date} onChange={handleEditBookingChange} className="w-full px-4 py-2.5 bg-surface rounded-xl border border-border focus:border-primary outline-none" />
+                </div>
+                <div>
+                  <label className="block font-semibold text-muted mb-1">Guest Count *</label>
+                  <input type="number" name="guest_count" required min={1} value={editingBooking.guest_count || 1} onChange={handleEditBookingChange} className="w-full px-4 py-2.5 bg-surface rounded-xl border border-border focus:border-primary outline-none" />
+                </div>
+                <div>
+                  <label className="block font-semibold text-muted mb-1">Catering Preference *</label>
+                  <select name="food_preference" required value={editingBooking.food_preference || "Veg Only"} onChange={handleEditBookingChange} className="w-full px-4 py-2.5 bg-surface rounded-xl border border-border focus:border-primary outline-none cursor-pointer">
+                    <option value="Veg Only">Veg Only</option>
+                    <option value="Veg & Non-Veg">Veg & Non-Veg</option>
+                    <option value="Venue Only">Venue Only (No Food)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-border/40 pt-4">
+                <div>
+                  <label className="block font-semibold text-muted mb-1">Total Amount (₹) *</label>
+                  <input type="number" name="total_amount" required min={0} value={editingBooking.total_amount || 0} onChange={handleEditBookingChange} className="w-full px-4 py-2.5 bg-surface rounded-xl border border-border focus:border-primary outline-none font-bold text-primary text-base" />
+                </div>
+                <div>
+                  <label className="block font-semibold text-muted mb-1">Payment Status *</label>
+                  <select name="payment_status" required value={editingBooking.payment_status || "pending"} onChange={handleEditBookingChange} className="w-full px-4 py-2.5 bg-surface rounded-xl border border-border focus:border-primary outline-none cursor-pointer font-bold">
+                    <option value="pending">Pending</option>
+                    <option value="paid">Paid</option>
+                    <option value="failed">Failed</option>
+                    <option value="refunded">Refunded</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-muted mb-1">Special Requests & Notes</label>
+                <textarea name="special_requests" rows={3} value={editingBooking.special_requests || ""} onChange={handleEditBookingChange} className="w-full px-4 py-2.5 bg-surface rounded-xl border border-border focus:border-primary outline-none resize-none" />
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-border">
+                <button type="button" disabled={isSavingBooking} onClick={() => setEditingBooking(null)} className="flex-1 py-3 border border-border text-ink rounded-xl font-semibold hover:bg-surface cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isSavingBooking} className="flex-1 py-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold cursor-pointer flex items-center justify-center gap-2 disabled:opacity-70">
+                  {isSavingBooking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {isSavingBooking ? "Updating..." : "Update Booking"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* REGISTRATION MODAL CODE REMAINS THE SAME */}
+      {viewingReg && (
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-8 space-y-6 relative">
+            <div className="flex items-start justify-between border-b border-border pb-4">
+              <div>
+                <h2 className="font-heading font-bold text-xl text-ink">Review: {viewingReg.name}</h2>
+                <p className="text-muted text-xs mt-1">Submitted on {new Date(viewingReg.created_at).toLocaleString()}</p>
+              </div>
+              <button onClick={() => setViewingReg(null)} className="p-2 hover:bg-surface rounded-xl text-muted hover:text-ink cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-4 bg-surface p-4 rounded-2xl border border-border/60">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-muted">Current Status:</span>
+                <span className="px-3 py-1 rounded-xl text-xs font-bold border bg-amber-50 text-amber-700 border-amber-200">
+                  Pending Approval
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => handleApproveBanquet(viewingReg)} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-md flex items-center gap-1.5 cursor-pointer">
+                  <CheckCircle2 className="w-4 h-4" /> Approve Banquet
+                </button>
+                <button onClick={() => handleRejectBanquet(viewingReg)} className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs shadow-md flex items-center gap-1.5 cursor-pointer">
+                  <XCircle className="w-4 h-4" /> Reject Request
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+              <div className="bg-surface/50 border border-border/60 rounded-2xl p-5 space-y-2">
+                <h3 className="font-bold text-ink text-sm border-b border-border/40 pb-2 flex items-center gap-1.5">
+                  <GlassWater className="w-4 h-4 text-primary" /> Banquet Specs & Pricing
+                </h3>
+                <p><strong className="text-ink">Capacity:</strong> {viewingReg.capacity} Guests</p>
+                <p><strong className="text-ink">Per Day Rent:</strong> {viewingReg.price_per_day > 0 ? `₹${viewingReg.price_per_day}` : "N/A"}</p>
+                <p><strong className="text-ink">Veg Plate Rate:</strong> ₹{viewingReg.price_per_plate_veg}</p>
+                <p><strong className="text-ink">Non-Veg Plate Rate:</strong> {viewingReg.price_per_plate_non_veg > 0 ? `₹${viewingReg.price_per_plate_non_veg}` : "N/A"}</p>
+                <p className="flex items-start gap-1 mt-2 pt-2 border-t border-border/40">
+                  <strong className="text-ink shrink-0">Amenities:</strong> 
+                  <span className="leading-relaxed">{formatAmenities(viewingReg.amenities)}</span>
+                </p>
+              </div>
+
+              <div className="bg-surface/50 border border-border/60 rounded-2xl p-5 space-y-2">
+                <h3 className="font-bold text-ink text-sm border-b border-border/40 pb-2 flex items-center gap-1.5"><UserCheck className="w-4 h-4 text-primary" /> Owner & Management</h3>
+                <p><strong className="text-ink">Owner:</strong> {viewingReg.owner_name} ({viewingReg.owner_phone})</p>
+                <p><strong className="text-ink">Manager:</strong> {viewingReg.property_manager_name} ({viewingReg.property_manager_phone})</p>
+                <p><strong className="text-ink">Email ID:</strong> {viewingReg.email}</p>
+                <p><strong className="text-ink">Full Address:</strong> {viewingReg.address}, {viewingReg.city}, {viewingReg.state} - {viewingReg.pincode}</p>
+                <p><strong className="text-ink">Map / Landmark:</strong> {viewingReg.location}</p>
+              </div>
+
+              <div className="bg-surface/50 border border-border/60 rounded-2xl p-5 space-y-2">
+                <h3 className="font-bold text-ink text-sm border-b border-border/40 pb-2 flex items-center gap-1.5"><ShieldCheck className="w-4 h-4 text-primary" /> Registration & Compliance</h3>
+                <p><strong className="text-ink">GST Number:</strong> {viewingReg.gst}</p>
+                <p><strong className="text-ink">Reg No:</strong> {viewingReg.banquet_registration_number}</p>
+                <p><strong className="text-ink">Fire NOC:</strong> {viewingReg.fire_safety_noc}</p>
+                <p><strong className="text-ink">CCTV Camera:</strong> {viewingReg.cctv_camera}</p>
+              </div>
+
+              <div className="bg-surface/50 border border-border/60 rounded-2xl p-5 space-y-2">
+                <h3 className="font-bold text-ink text-sm border-b border-border/40 pb-2 flex items-center gap-1.5"><CreditCard className="w-4 h-4 text-primary" /> Payout Bank Details</h3>
+                <p><strong className="text-ink">Bank Name:</strong> {viewingReg.bank_name}</p>
+                <p><strong className="text-ink">Account Holder:</strong> {viewingReg.account_holder_name}</p>
+                <p><strong className="text-ink">Account No:</strong> {viewingReg.account_number}</p>
+                <p><strong className="text-ink">IFSC Code:</strong> {viewingReg.ifsc_code}</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-4 border-t border-border">
+              <h3 className="font-bold text-ink text-sm">Inspection Photos</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {[
+                  { title: "Hall Photo", pic: viewingReg.hall_pic },
+                  { title: "Reception", pic: viewingReg.reception_pic },
+                  { title: "Bathroom", pic: viewingReg.bathroom_pic },
+                  { title: "Exterior", pic: viewingReg.interior_exterior_pic },
+                ].map((cat, idx) => (
+                  <div key={idx} className="border border-border/60 rounded-xl p-3 bg-surface/40 space-y-2">
+                    <span className="text-[11px] font-bold text-ink block">{cat.title}</span>
+                    {cat.pic ? (
+                      <div onClick={() => setLightboxImg(getImageUrl(cat.pic))} className="relative group h-28 rounded-lg overflow-hidden border border-border bg-black/5 cursor-pointer">
+                        <img src={getImageUrl(cat.pic)} alt={cat.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-1">
+                          <Eye className="w-3.5 h-3.5" /> Preview
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-28 rounded-lg border border-dashed border-border flex items-center justify-center text-muted text-[11px]">No photo</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CATALOG ADD / EDIT MODAL REMAINS THE SAME */}
+      {modalOpen && currentBq && (
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 space-y-6 shadow-2xl relative max-h-[95vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-border pb-4 shrink-0">
+              <h2 className="font-heading font-bold text-xl text-ink">
+                {currentBq.id ? "Edit Banquet Hall Details" : "Add New Banquet Hall"}
+              </h2>
+              <button onClick={() => setModalOpen(false)} className="p-2 hover:bg-surface rounded-xl text-muted hover:text-ink cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCatalogSubmit} className="space-y-6 text-xs overflow-y-auto pr-2 pb-4">
+              <div className="bg-surface/30 p-4 rounded-xl border border-border/50">
+                <label className="block font-bold text-ink mb-3 text-sm">Banquet Image Gallery *</label>
+                <div className="flex flex-wrap gap-4">
+                  {existingImages.map((img, idx) => (
+                    <div key={`ext-${idx}`} className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl border border-border overflow-hidden group">
+                      <img src={getImageUrl(img)} alt="preview" className="w-full h-full object-cover" />
+                      <button type="button" onClick={() => removeExistingImage(idx)} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {newImageFiles.map((file, idx) => (
+                    <div key={`new-${idx}`} className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl border border-primary/40 overflow-hidden group">
+                      <img src={URL.createObjectURL(file)} alt="preview" className="w-full h-full object-cover" />
+                      <div className="absolute top-1 left-1 bg-primary text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">NEW</div>
+                      <button type="button" onClick={() => removeNewImage(idx)} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  <label className="w-24 h-24 sm:w-28 sm:h-28 flex flex-col items-center justify-center border-2 border-dashed border-primary/50 text-primary hover:bg-primary/5 rounded-xl cursor-pointer transition-colors bg-white">
+                    <UploadCloud className="w-6 h-6 mb-1" />
+                    <span className="text-[10px] font-bold text-center px-2">Add Files</span>
+                    <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageSelect} />
+                  </label>
+                </div>
+                {catalogErrors.images && <p className="text-rose-500 text-[11px] font-semibold mt-2">{catalogErrors.images}</p>}
+              </div>
+
+              <div className="bg-surface/30 p-4 rounded-xl border border-border/50 space-y-4">
+                <h3 className="font-bold text-ink text-sm border-b border-border/60 pb-2">Basic Details & Pricing</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block font-semibold text-muted mb-1">Banquet Name *</label>
+                    <input type="text" name="name" value={currentBq.name || ""} onChange={handleInputChange} placeholder="e.g. Royal Palace Banquet" className="w-full px-4 py-2.5 bg-white rounded-xl border border-border focus:border-primary outline-none" />
+                    {catalogErrors.name && <p className="text-rose-500 text-[10px] mt-0.5">{catalogErrors.name}</p>}
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-muted mb-1">Seating Capacity *</label>
+                    <input type="number" name="capacity" value={currentBq.capacity || 0} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-white rounded-xl border border-border focus:border-primary outline-none" />
+                    {catalogErrors.capacity && <p className="text-rose-500 text-[10px] mt-0.5">{catalogErrors.capacity}</p>}
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-muted mb-1">Per Day Rent (₹)</label>
+                    <input type="number" name="pricePerDay" value={currentBq.pricePerDay || 0} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-white rounded-xl border border-border focus:border-primary outline-none" />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-muted mb-1">Veg Plate Rate (₹) *</label>
+                    <input type="number" name="pricePerPlateVeg" value={currentBq.pricePerPlateVeg || 0} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-white rounded-xl border border-border focus:border-primary outline-none" />
+                    {catalogErrors.pricePerPlateVeg && <p className="text-rose-500 text-[10px] mt-0.5">{catalogErrors.pricePerPlateVeg}</p>}
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-muted mb-1">Non-Veg Plate Rate (₹)</label>
+                    <input type="number" name="pricePerPlateNonVeg" value={currentBq.pricePerPlateNonVeg || 0} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-white rounded-xl border border-border focus:border-primary outline-none" />
+                  </div>
+                  <div className="md:col-span-3">
+                    <label className="block font-semibold text-muted mb-1">Description</label>
+                    <textarea name="description" rows={3} value={currentBq.description || ""} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-white rounded-xl border border-border focus:border-primary outline-none resize-none" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-surface/30 p-4 rounded-xl border border-border/50 space-y-4">
+                <h3 className="font-bold text-ink text-sm border-b border-border/60 pb-2">Location Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block font-semibold text-muted mb-1">Google Maps Link / Landmark *</label>
+                    <input type="text" name="location" value={currentBq.location || ""} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-white rounded-xl border border-border focus:border-primary outline-none" />
+                    {catalogErrors.location && <p className="text-rose-500 text-[10px] mt-0.5">{catalogErrors.location}</p>}
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block font-semibold text-muted mb-1">Full Street Address</label>
+                    <textarea name="address" rows={2} value={currentBq.address || ""} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-white rounded-xl border border-border focus:border-primary outline-none resize-none" />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-muted mb-1">City</label>
+                    <input type="text" name="city" value={currentBq.city || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none" />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-muted mb-1">State</label>
+                    <input type="text" name="state" value={currentBq.state || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none" />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-muted mb-1">Pincode</label>
+                    <input type="text" name="pincode" value={currentBq.pincode || ""} onChange={handleInputChange} maxLength={6} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none font-mono" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-surface/30 p-4 rounded-xl border border-border/50 space-y-4">
+                <h3 className="font-bold text-ink text-sm border-b border-border/60 pb-2">Owner & Contact Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-semibold text-muted mb-1">Owner Name</label>
+                    <input type="text" name="owner_name" value={currentBq.owner_name || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none" />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-muted mb-1">Owner Phone</label>
+                    <input type="text" name="owner_phone" value={currentBq.owner_phone || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none" />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-muted mb-1">Property Manager Name</label>
+                    <input type="text" name="property_manager_name" value={currentBq.property_manager_name || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none" />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-muted mb-1">Property Manager Phone</label>
+                    <input type="text" name="property_manager_phone" value={currentBq.property_manager_phone || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block font-semibold text-muted mb-1">Registered Email ID</label>
+                    <input type="email" name="email" value={currentBq.email || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none" />
+                  </div>
+                </div>
+
+                <h3 className="font-bold text-ink text-sm border-b border-border/60 pb-2 mt-6">Payout Bank Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-semibold text-muted mb-1">Bank Name</label>
+                    <input type="text" name="bank_name" value={currentBq.bank_name || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none" />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-muted mb-1">Account Holder Name</label>
+                    <input type="text" name="account_holder_name" value={currentBq.account_holder_name || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none" />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-muted mb-1">Account Number</label>
+                    <input type="text" name="account_number" value={currentBq.account_number || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none font-mono" />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-muted mb-1">IFSC Code</label>
+                    <input type="text" name="ifsc_code" value={currentBq.ifsc_code || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none font-mono uppercase" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-surface/30 p-4 rounded-xl border border-border/50 space-y-4">
+                <h3 className="font-bold text-ink text-sm border-b border-border/60 pb-2">Compliance & Licenses</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-semibold text-muted mb-1">GST Number</label>
+                    <input type="text" name="gst" value={currentBq.gst || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none font-mono" />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-muted mb-1">Banquet Registration No.</label>
+                    <input type="text" name="banquet_registration_number" value={currentBq.banquet_registration_number || ""} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none" />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-muted mb-1">Fire Safety NOC</label>
+                    <select name="fire_safety_noc" value={currentBq.fire_safety_noc || "Yes"} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none">
+                      <option value="Yes">Yes (NOC Issued)</option>
+                      <option value="No">No</option>
+                      <option value="In Process">In Process</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-muted mb-1">CCTV Camera Setup</label>
+                    <select name="cctv_camera" value={currentBq.cctv_camera || "Available"} onChange={handleInputChange} className="w-full px-4 py-2 bg-white rounded-xl border border-border focus:border-primary outline-none">
+                      <option value="Available">Available (Full Coverage)</option>
+                      <option value="Not Available">Not Available</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-surface/30 p-4 rounded-xl border border-border/50">
+                <label className="block font-bold text-ink text-sm border-b border-border/60 pb-2 mb-3">Amenities List</label>
+                <div className="flex items-center gap-2 mb-3">
+                  <input 
+                    type="text" 
+                    value={amenityInput}
+                    onChange={(e) => setAmenityInput(e.target.value)}
+                    onKeyDown={(e) => { if(e.key === 'Enter') { e.preventDefault(); handleAddAmenity(); }}}
+                    placeholder="e.g. Valet Parking, DJ, AC"
+                    className="flex-1 px-4 py-2.5 bg-white rounded-xl border border-border focus:border-primary outline-none"
+                  />
+                  <button type="button" onClick={handleAddAmenity} className="px-4 py-2.5 bg-ink text-white font-bold rounded-xl cursor-pointer hover:bg-ink-light">
+                    Add
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(currentBq?.amenities || []).map((am: string, idx: number) => (
+                    <span key={idx} className="bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5">
+                      {am}
+                      <X className="w-3.5 h-3.5 cursor-pointer hover:text-red-500" onClick={() => handleRemoveAmenity(idx)} />
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center gap-6 pt-3 pb-2 bg-surface/30 p-4 rounded-xl border border-border/50">
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" id="is_approved" name="is_approved" checked={currentBq.is_approved || false} onChange={handleInputChange} className="w-4 h-4 rounded text-primary border-border cursor-pointer" />
+                  <label htmlFor="is_approved" className="font-bold text-emerald-600 cursor-pointer text-xs">Approved (Visible on Public Website)</label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" id="featured" name="featured" checked={currentBq.featured || false} onChange={handleInputChange} className="w-4 h-4 rounded text-primary border-border cursor-pointer" />
+                  <label htmlFor="featured" className="font-bold text-amber-600 cursor-pointer text-xs">Mark as Featured Listing</label>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-border flex items-center justify-end gap-3 sticky bottom-0 bg-white">
+                <button type="button" disabled={isSaving} onClick={() => setModalOpen(false)} className="px-5 py-2.5 border border-border text-ink rounded-xl font-semibold hover:bg-surface cursor-pointer">Cancel</button>
+                <button type="submit" disabled={isSaving} className="px-6 py-2.5 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold cursor-pointer shadow-lg shadow-primary/20 flex items-center gap-1.5 disabled:opacity-70">
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {isSaving ? "Saving..." : "Save Banquet"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

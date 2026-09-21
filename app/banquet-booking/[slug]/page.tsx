@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { MapPin, Users, IndianRupee, ShieldCheck, CheckCircle2, ArrowLeft, Phone, MessageCircle } from "lucide-react";
+import { MapPin, Users, IndianRupee, ShieldCheck, CheckCircle2, ArrowLeft, Phone, MessageCircle, CalendarClock } from "lucide-react";
 import Link from "next/link";
 import Breadcrumbs from "@/components/shared/Breadcrumbs";
 import BanquetAmenities from "@/components/banquets/BanquetAmenities";
@@ -95,8 +95,10 @@ export default async function BanquetDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const vegRate = Number(banquet.price_per_plate_veg ?? banquet.pricePerPlateVeg ?? 800);
-  const nonVegRate = Number(banquet.price_per_plate_non_veg ?? banquet.pricePerPlateNonVeg ?? 1000);
+  // Safely extract pricing fields
+  const vegRate = Number(banquet.price_per_plate_veg ?? banquet.pricePerPlateVeg ?? 0);
+  const nonVegRate = Number(banquet.price_per_plate_non_veg ?? banquet.pricePerPlateNonVeg ?? 0);
+  const perDayRate = Number(banquet.price_per_day ?? banquet.pricePerDay ?? 0);
   const capacity = Number(banquet.capacity || 500);
 
   return (
@@ -111,8 +113,16 @@ export default async function BanquetDetailPage({ params }: PageProps) {
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
 
         <div className="container-wide relative z-10 pb-8 text-white">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/30 border border-primary/40 backdrop-blur-md rounded-full text-xs font-bold text-primary-light mb-3">
-            <Users className="w-3.5 h-3.5" /> Seating Capacity: {capacity} Guests
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/30 border border-primary/40 backdrop-blur-md rounded-full text-xs font-bold text-primary-light">
+              <Users className="w-3.5 h-3.5" /> Seating Capacity: {capacity} Guests
+            </div>
+            {perDayRate > 0 && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/80 border border-amber-400/50 backdrop-blur-md rounded-full text-xs font-bold text-white">
+                <CalendarClock className="w-3.5 h-3.5" /> 
+                Rent: <IndianRupee className="w-3 h-3 -mr-1" /> {perDayRate.toLocaleString("en-IN")} / Day
+              </div>
+            )}
           </div>
 
           <h1 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white mb-2">
@@ -178,19 +188,35 @@ export default async function BanquetDetailPage({ params }: PageProps) {
                   `${banquet.name} is one of the most sought-after banquet halls in ${banquet.city || "the city"}, featuring grand celebration spaces, air-conditioned halls, customized catering, and ample parking space for marriage and reception ceremonies.`}
               </p>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 border-t border-border/40 text-xs">
-                <div className="p-3 bg-surface rounded-xl">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-border/40 text-xs">
+                <div className="p-3 bg-surface rounded-xl flex flex-col justify-center">
                   <span className="text-muted block text-[10px] uppercase font-bold">Hall Capacity</span>
                   <span className="font-bold text-ink text-sm mt-0.5 block">{capacity} Guests</span>
                 </div>
-                <div className="p-3 bg-surface rounded-xl">
-                  <span className="text-muted block text-[10px] uppercase font-bold">Veg Catering</span>
-                  <span className="font-bold text-ink text-sm mt-0.5 block">₹{vegRate} / plate</span>
+                
+                {/* Highlighted Per Day Charge */}
+                <div className="p-3 bg-primary/10 border border-primary/20 rounded-xl flex flex-col justify-center">
+                  <span className="text-primary block text-[10px] uppercase font-bold">Per Day Rent</span>
+                  <span className="font-bold text-primary text-sm mt-0.5 flex items-center">
+                    {perDayRate > 0 ? (
+                      <><IndianRupee className="w-3.5 h-3.5 mr-0.5" />{perDayRate.toLocaleString("en-IN")}</>
+                    ) : "On Request"}
+                  </span>
                 </div>
-                <div className="p-3 bg-surface rounded-xl">
+
+                <div className="p-3 bg-surface rounded-xl flex flex-col justify-center">
+                  <span className="text-muted block text-[10px] uppercase font-bold">Veg Catering</span>
+                  <span className="font-bold text-ink text-sm mt-0.5 flex items-center">
+                    <IndianRupee className="w-3.5 h-3.5 mr-0.5" />{vegRate} <span className="text-[10px] font-normal text-muted ml-1">/ plate</span>
+                  </span>
+                </div>
+
+                <div className="p-3 bg-surface rounded-xl flex flex-col justify-center">
                   <span className="text-muted block text-[10px] uppercase font-bold">Non-Veg Catering</span>
-                  <span className="font-bold text-ink text-sm mt-0.5 block">
-                    {nonVegRate > 0 ? `₹${nonVegRate} / plate` : "On Request"}
+                  <span className="font-bold text-ink text-sm mt-0.5 flex items-center">
+                    {nonVegRate > 0 ? (
+                      <><IndianRupee className="w-3.5 h-3.5 mr-0.5" />{nonVegRate} <span className="text-[10px] font-normal text-muted ml-1">/ plate</span></>
+                    ) : "On Request"}
                   </span>
                 </div>
               </div>

@@ -325,9 +325,11 @@ export const banquetRegistrationSchema = z.object({
 
   // Document & Photo Uploads (Base64)
   hallPic: z.string().optional(),
-receptionPic: z.string().optional(),
-bathroomPic: z.string().optional(),
-interiorExteriorPic: z.string().optional(),
+  receptionPic: z.string().optional(),
+  bathroomPic: z.string().optional(),
+  interiorExteriorPic: z.string().optional(),
+  pricePerDay: z.any().optional(),
+  description: z.string().optional(),
 });
 
 export type BanquetRegistrationFormData = z.infer<typeof banquetRegistrationSchema>;

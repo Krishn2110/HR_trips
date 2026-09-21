@@ -7,7 +7,7 @@ import Link from "next/link";
 import {
   GlassWater, ShieldCheck, CreditCard, User, MapPin, Upload,
   CheckCircle2, AlertCircle, Loader2, ArrowRight, ArrowLeft,
-  X, Check, Camera, Users, IndianRupee, Star, Mail, Phone, Lock, Building2
+  X, Check, Camera, Users, IndianRupee, Star, AlignLeft
 } from "lucide-react";
 import { banquetRegistrationSchema } from "@/lib/validators"; 
 import Breadcrumbs from "@/components/shared/Breadcrumbs";
@@ -35,7 +35,8 @@ export default function BanquetRegistrationPage() {
     defaultValues: {
       ownerName: "", ownerContact: "", propertyManagerName: "", propertyManagerPhone: "",
       email: "", password: "", banquetName: "", 
-      capacity: "", pricePerPlateVeg: "", pricePerPlateNonVeg: "", amenities: "", 
+      capacity: "", pricePerPlateVeg: "", pricePerPlateNonVeg: "", pricePerDay: "", 
+      description: "", amenities: "", 
       gst: "", banquetRegistrationNumber: "", fireSafetyNoc: "Yes", cctvCamera: "Available",
       bankName: "", accountHolderName: "", accountNo: "", ifscCode: "",
       location: "", address: "", city: "", state: "", pincode: "",
@@ -75,7 +76,7 @@ export default function BanquetRegistrationPage() {
   };
 
   const step1Fields = ["ownerName", "ownerContact", "propertyManagerName", "propertyManagerPhone", "email", "password", "location", "address", "city", "state", "pincode"];
-  const step2Fields = ["banquetName", "capacity", "pricePerPlateVeg", "pricePerPlateNonVeg", "amenities", "gst", "banquetRegistrationNumber", "fireSafetyNoc", "cctvCamera", "bankName", "accountHolderName", "accountNo", "ifscCode"];
+  const step2Fields = ["banquetName", "capacity", "pricePerPlateVeg", "pricePerPlateNonVeg", "pricePerDay", "description", "amenities", "gst", "banquetRegistrationNumber", "fireSafetyNoc", "cctvCamera", "bankName", "accountHolderName", "accountNo", "ifscCode"];
 
   const nextStep = async () => {
     let fieldsToValidate = currentStep === 1 ? step1Fields : step2Fields;
@@ -109,7 +110,6 @@ export default function BanquetRegistrationPage() {
     }
   };
 
-  // IGNORING 'data' parameter to bypass any fields stripped by Zod
   const onSubmit = async () => {
     const requiredPhotos: PhotoKey[] = ["hallPic", "receptionPic", "bathroomPic", "interiorExteriorPic"];
     if (requiredPhotos.some((field) => !selectedFiles[field])) {
@@ -122,11 +122,10 @@ export default function BanquetRegistrationPage() {
     setErrorMsg("");
 
     try {
-      // 1. Get RAW values directly from the inputs
       const rawValues = getValues();
       const formData = new FormData();
 
-      // 2. Append text fields exactly as typed
+      // 1. Append text fields
       formData.append("ownerName", rawValues.ownerName || "");
       formData.append("ownerContact", rawValues.ownerContact || "");
       formData.append("propertyManagerName", rawValues.propertyManagerName || "");
@@ -135,17 +134,19 @@ export default function BanquetRegistrationPage() {
       formData.append("password", rawValues.password || "");
       
       formData.append("banquetName", rawValues.banquetName || "");
+      formData.append("description", rawValues.description || "");
       
-      // 3. FORCE NUMBERS AND AMENITIES INTACT
+      // 2. FORCE NUMBERS AND AMENITIES INTACT
       formData.append("capacity", String(rawValues.capacity || "0"));
       formData.append("pricePerPlateVeg", String(rawValues.pricePerPlateVeg || "0"));
       formData.append("pricePerPlateNonVeg", String(rawValues.pricePerPlateNonVeg || "0"));
+      formData.append("pricePerDay", String(rawValues.pricePerDay || "0"));
       
       const amenitiesStr = String(rawValues.amenities || "");
       const amenitiesArr = amenitiesStr.split(",").map((s) => s.trim()).filter(Boolean);
       formData.append("amenities", JSON.stringify(amenitiesArr));
 
-      // 4. Append remaining text fields
+      // 3. Append remaining fields
       formData.append("gst", rawValues.gst || "");
       formData.append("banquetRegistrationNumber", rawValues.banquetRegistrationNumber || "");
       formData.append("fireSafetyNoc", rawValues.fireSafetyNoc || "");
@@ -160,7 +161,7 @@ export default function BanquetRegistrationPage() {
       formData.append("state", rawValues.state || "");
       formData.append("pincode", rawValues.pincode || "");
 
-      // 5. Append actual Native Files
+      // 4. Append actual Native Files
       if (selectedFiles.hallPic) formData.append("hallPic", selectedFiles.hallPic);
       if (selectedFiles.receptionPic) formData.append("receptionPic", selectedFiles.receptionPic);
       if (selectedFiles.bathroomPic) formData.append("bathroomPic", selectedFiles.bathroomPic);
@@ -368,13 +369,24 @@ export default function BanquetRegistrationPage() {
                       {errors.amenities && <p className="text-red-500 text-[10px] mt-1">{(errors.amenities as any).message}</p>}
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-muted mb-1.5 flex items-center gap-1"><IndianRupee className="w-3.5 h-3.5" /> Veg Plate Price (₹) *</label>
+                      <label className="block text-xs font-semibold text-muted mb-1.5 flex items-center gap-1"><IndianRupee className="w-3.5 h-3.5" /> Veg Plate Price (₹)</label>
                       <input type="number" step="0.01" {...register("pricePerPlateVeg")} className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none" />
                       {errors.pricePerPlateVeg && <p className="text-red-500 text-[10px] mt-1">{(errors.pricePerPlateVeg as any).message}</p>}
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-muted mb-1.5 flex items-center gap-1"><IndianRupee className="w-3.5 h-3.5" /> Non-Veg Plate Price (₹)</label>
                       <input type="number" step="0.01" {...register("pricePerPlateNonVeg")} className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-muted mb-1.5 flex items-center gap-1"><IndianRupee className="w-3.5 h-3.5" /> Per Day Hall Rent (₹)</label>
+                      <input type="number" step="0.01" {...register("pricePerDay")} placeholder="Optional rent without food" className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none" />
+                    </div>
+                    
+                    {/* DESCRIPTION FIELD */}
+                    <div className="sm:col-span-2 mt-2">
+                      <label className="block text-xs font-semibold text-muted mb-1.5 flex items-center gap-1"><AlignLeft className="w-3.5 h-3.5" /> Description / About Banquet</label>
+                      <textarea rows={3} {...register("description")} placeholder="Describe the ambiance, services, and special features of your banquet hall..." className="w-full px-4 py-3 bg-surface rounded-xl text-xs text-ink border border-border focus:border-primary outline-none resize-none" />
+                      {errors.description && <p className="text-red-500 text-[10px] mt-1">{(errors.description as any).message}</p>}
                     </div>
                   </div>
                 </div>
