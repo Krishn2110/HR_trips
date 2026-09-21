@@ -86,72 +86,61 @@ export default function HotelOwnerLayout({
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 w-64 bg-[#1A1A1A] text-white flex flex-col transform transition-transform duration-300 z-50 lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:shrink-0 ${
+        className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-72 bg-[#1A1A1A] text-white flex flex-col justify-between transition-transform duration-300 lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* Brand */}
-        <div className="h-20 border-b border-white/5 px-6 flex items-center gap-3">
-          <img src="/logo.png" alt="HR Trips Logo" className="w-10 h-10 object-contain rounded-xl shadow-md bg-white p-1 shrink-0" />
-          <div>
-            <span className="font-heading font-black text-white text-lg tracking-tight block">
-              HR Trips
-            </span>
-            <span className="text-[10px] text-white/40 font-medium uppercase tracking-wider">
-              Hotel Owner Portal
-            </span>
+        <div>
+          {/* Brand */}
+          <div className="h-20 px-6 border-b border-white/5 flex items-center gap-3">
+            <img src="/logo.png" alt="HR Trips Logo" className="w-10 h-10 object-contain rounded-xl shadow-md bg-white p-1 shrink-0" />
+            <div>
+              <div className="font-heading font-black text-white text-base tracking-wide flex items-center gap-1.5">
+                HR Trips <span className="text-[10px] font-semibold text-primary px-1.5 py-0.5 bg-primary/10 border border-primary/20 rounded">Hotel Portal</span>
+              </div>
+              <p className="text-[11px] text-white/40 truncate max-w-[170px]">{ownerEmail}</p>
+            </div>
           </div>
+
+          {/* Nav Links */}
+          <nav className="p-4 space-y-1.5">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const active = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-xs transition-all ${
+                    active
+                      ? "bg-primary text-white shadow-lg shadow-primary/25 font-bold"
+                      : "text-white/60 hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
         </div>
 
-        {/* User Info */}
-        <div className="px-6 py-5 border-b border-white/5 bg-white/[0.02] flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border border-white/10">
-            <User className="w-5 h-5 text-white/70" />
-          </div>
-          <div>
-            <span className="text-sm font-semibold text-white block">Hotel Owner</span>
-            <span className="text-[10px] text-white/40 block truncate max-w-[140px]">{ownerEmail}</span>
-          </div>
-        </div>
-
-        {/* Nav Links */}
-        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                  active
-                    ? "bg-primary text-white shadow-lg shadow-primary/20"
-                    : "text-white/60 hover:text-white hover:bg-white/[0.04]"
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-white/5 bg-white/[0.01] space-y-1.5">
+        {/* Footer Actions */}
+        <div className="p-4 border-t border-white/5 space-y-2">
           <Link
-            href="/"
-            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-white/50 hover:text-white hover:bg-white/[0.04] transition-colors"
+            href="/hotel-booking"
+            className="flex items-center gap-2.5 px-4 py-2.5 text-xs text-white/50 hover:text-white hover:bg-white/5 rounded-xl transition-colors font-medium"
           >
             <Globe className="w-4 h-4" />
-            Public Website
+            <span>Public Hotel Booking</span>
           </Link>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors text-left cursor-pointer"
+            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-xl transition-colors font-semibold cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
-            Logout
+            <span>Logout</span>
           </button>
         </div>
       </aside>

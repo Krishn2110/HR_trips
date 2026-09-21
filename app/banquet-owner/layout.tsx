@@ -100,7 +100,7 @@ export default function BanquetOwnerLayout({
             <img src="/logo.png" alt="HR Trips Logo" className="w-10 h-10 object-contain rounded-xl shadow-md bg-white p-1 shrink-0" />
             <div>
               <div className="font-heading font-black text-white text-base tracking-wide flex items-center gap-1.5">
-                HR Trips <span className="text-[10px] font-semibold text-primary px-1.5 py-0.5 bg-primary/10 border border-primary/20 rounded">Banquet</span>
+                HR Trips <span className="text-[10px] font-semibold text-primary px-1.5 py-0.5 bg-primary/10 border border-primary/20 rounded">Banquet Portal</span>
               </div>
               <p className="text-[11px] text-white/40 truncate max-w-[170px]">{ownerEmail}</p>
             </div>

@@ -5,7 +5,7 @@ import type { HotelRegistration, RoomType } from "@/lib/types";
 import {
   Building2, Clock, CheckCircle, XCircle, Mail, Phone, MapPin, Star,
   DoorOpen, Users, Calendar, IndianRupee, TrendingUp, Settings, Plus,
-  Trash2, Edit3, LogOut, Loader2, X, CheckCircle2, UploadCloud, Image as ImageIcon
+  Trash2, Edit3, LogOut, Loader2, X, CheckCircle2, UploadCloud, Image as ImageIcon, RefreshCw
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -450,16 +450,46 @@ export default function HotelOwnerDashboard() {
 
     return (
       <div className="space-y-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/40 pb-5">
+        {/* UNIFIED TOP HEADER CARD */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 sm:p-7 rounded-2xl border border-border/50 shadow-sm">
           <div>
-            <span className="text-[10px] uppercase font-bold text-primary tracking-wider">Hotel Control Center</span>
-            <h1 className="font-heading font-black text-2xl lg:text-3xl text-ink mt-0.5">{registration.hotelName}</h1>
-            <p className="text-muted text-xs mt-1">Owner Portal: logged in as <span className="font-semibold">{registration.ownerName}</span></p>
+            <span className="text-[10px] uppercase font-bold text-primary tracking-wider block mb-1">
+              Hotel Control Center
+            </span>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="font-heading font-black text-2xl sm:text-3xl text-ink">
+                {registration.hotelName}
+              </h1>
+              {totalRooms > 0 && (
+                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-surface border border-border text-ink">
+                  {totalRooms} Rooms Listed
+                </span>
+              )}
+            </div>
+            <p className="text-muted text-xs flex flex-wrap items-center gap-2 mt-1.5">
+              <span>Owner: <strong className="text-ink">{registration.ownerName}</strong></span>
+              {registration.city && (
+                <>
+                  <span>•</span>
+                  <span>Location: <strong className="text-ink">{registration.city}, {registration.state}</strong></span>
+                </>
+              )}
+            </p>
           </div>
-          
-          <button onClick={handleLogout} className="inline-flex items-center gap-1.5 px-4 py-2 border border-border bg-white rounded-xl text-xs font-semibold text-muted hover:text-rose-600 hover:border-rose-100 cursor-pointer transition-colors self-start">
-            <LogOut className="w-3.5 h-3.5" /> Log Out
-          </button>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => fetchReg()}
+              className="p-2.5 bg-surface hover:bg-border/50 border border-border rounded-xl text-muted hover:text-ink transition-colors cursor-pointer"
+              title="Refresh Status"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+
+            <span className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold shadow-sm">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Verified & Active Partner
+            </span>
+          </div>
         </div>
 
         <div className="flex border-b border-border/50 gap-6">

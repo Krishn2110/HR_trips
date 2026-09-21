@@ -271,21 +271,26 @@ export default function CabOwnerDashboardPage() {
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
-      {/* TOP HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-border/50 shadow-sm">
+      {/* UNIFIED TOP HEADER CARD */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 sm:p-7 rounded-2xl border border-border/50 shadow-sm">
         <div>
-          <div className="flex items-center gap-3 mb-1">
-            <h1 className="font-heading font-bold text-2xl text-ink">
+          <span className="text-[10px] uppercase font-bold text-primary tracking-wider block mb-1">
+            Cab Control Center
+          </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="font-heading font-black text-2xl sm:text-3xl text-ink">
               {cabReg.cabName}
             </h1>
             <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-surface border border-border text-ink uppercase">
               {cabReg.cabNo}
             </span>
           </div>
-          <p className="text-muted text-xs flex items-center gap-2">
+          <p className="text-muted text-xs flex flex-wrap items-center gap-2 mt-1.5">
             <span>Owner: <strong className="text-ink">{cabReg.ownerName}</strong></span>
             <span>•</span>
             <span>Type: <strong className="text-ink">{cabReg.cabType}</strong></span>
+            <span>•</span>
+            <span>Location: <strong className="text-ink">{cabReg.city}, {cabReg.state}</strong></span>
           </p>
         </div>
 
@@ -293,14 +298,10 @@ export default function CabOwnerDashboardPage() {
           <button onClick={fetchCabReg} className="p-2.5 bg-surface hover:bg-border/50 border border-border rounded-xl text-muted hover:text-ink transition-colors cursor-pointer" title="Refresh Status">
             <RefreshCw className="w-4 h-4" />
           </button>
-          
-          <button onClick={handleLogout} className="p-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition-colors cursor-pointer" title="Logout">
-            <LogOut className="w-4 h-4" />
-          </button>
 
           {isApproved && (
             <span className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold shadow-sm">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Verified & Active
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Verified & Active Partner
             </span>
           )}
           {isPending && (

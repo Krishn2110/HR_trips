@@ -318,44 +318,66 @@ export default function BanquetOwnerDashboardPage() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* STATUS BANNER */}
-      <div className={`rounded-3xl p-6 sm:p-8 border shadow-sm relative overflow-hidden ${
-          isApproved
-            ? "bg-gradient-to-br from-emerald-950 via-slate-900 to-emerald-950 text-white border-emerald-500/20"
-            : "bg-gradient-to-br from-amber-950 via-slate-900 to-amber-950 text-white border-amber-500/20"
-        }`}
-      >
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-white/10 backdrop-blur-xs border border-white/10">
-              {isApproved ? (
-                <><CheckCircle2 className="w-4 h-4 text-emerald-400" /><span className="text-emerald-400">Verified & Approved Partner</span></>
-              ) : (
-                <><Clock className="w-4 h-4 text-amber-400" /><span className="text-amber-400">Under Admin Verification Review</span></>
-              )}
-            </div>
-            <h1 className="font-heading font-black text-2xl sm:text-3xl text-white">
+      {/* UNIFIED TOP HEADER CARD */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 sm:p-7 rounded-2xl border border-border/50 shadow-sm">
+        <div>
+          <span className="text-[10px] uppercase font-bold text-primary tracking-wider block mb-1">
+            Banquet Control Center
+          </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="font-heading font-black text-2xl sm:text-3xl text-ink">
               {banquet.name}
             </h1>
-            <p className="text-white/75 text-xs sm:text-sm leading-relaxed">
-              {isApproved
-                ? "Your banquet hall is live on HR Trips. You can manage guest event bookings, adjust per-plate menu pricing, and configure celebration spaces."
-                : "Your registration documents and inspection photos are being reviewed by HR Trips Admin. You will receive customer event reservations once approved."}
-            </p>
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-surface border border-border text-ink">
+              {capacity} Guests Max
+            </span>
           </div>
+          <p className="text-muted text-xs flex flex-wrap items-center gap-2 mt-1.5">
+            <span>Owner: <strong className="text-ink">{banquet.owner_name}</strong></span>
+            <span>•</span>
+            <span>Location: <strong className="text-ink">{banquet.city}, {banquet.state}</strong></span>
+            {banquet.pincode && (
+              <>
+                <span>•</span>
+                <span>PIN: <strong className="text-ink">{banquet.pincode}</strong></span>
+              </>
+            )}
+          </p>
+        </div>
 
-          <div className="flex flex-col items-end gap-3 shrink-0">
-            <button onClick={handleLogout} className="px-4 py-2 border border-white/20 hover:bg-white/10 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer">
-              <LogOut className="w-3.5 h-3.5" /> Logout
-            </button>
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 text-right">
-              <span className="text-[10px] text-white/60 uppercase font-bold block">Location</span>
-              <span className="text-sm font-bold text-white block mt-0.5">{banquet.city}, {banquet.state}</span>
-              <span className="text-[11px] text-white/70 block mt-0.5">PIN: {banquet.pincode}</span>
-            </div>
-          </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => loadProfile()}
+            className="p-2.5 bg-surface hover:bg-border/50 border border-border rounded-xl text-muted hover:text-ink transition-colors cursor-pointer"
+            title="Refresh Status"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+
+          {isApproved ? (
+            <span className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold shadow-sm">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Verified & Active Partner
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-xs font-bold shadow-sm">
+              <Clock className="w-4 h-4 text-amber-600 animate-pulse" /> Verification Pending
+            </span>
+          )}
         </div>
       </div>
+
+      {/* VERIFICATION REVIEW NOTICE */}
+      {!isApproved && (
+        <div className="bg-amber-50/90 border border-amber-200/80 rounded-2xl p-4 sm:p-5 flex items-start gap-3 shadow-xs">
+          <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 animate-pulse" />
+          <div className="text-xs">
+            <p className="font-bold text-amber-900 text-sm">Venue Verification Under Review</p>
+            <p className="text-amber-800 mt-1 leading-relaxed">
+              Your banquet hall details and inspection photos are currently under review by the HR Trips verification team. Once approved, your venue will become active for customer event bookings.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* TABS NAVIGATION */}
       <div className="flex border-b border-border/40 gap-6 overflow-x-auto whitespace-nowrap">
@@ -655,7 +677,23 @@ export default function BanquetOwnerDashboardPage() {
             <form onSubmit={handleSaveHall} className="space-y-4 text-xs">
               <div>
                 <label className="block font-semibold text-muted mb-1.5">Space Name *</label>
-                <input type="text" required value={hallName} onChange={(e) => setHallName(e.target.value)} placeholder="e.g. Grand AC Hall" className="w-full px-3.5 py-2.5 bg-surface rounded-xl border border-border focus:border-primary outline-none" />
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {HALL_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setHallName(cat)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors cursor-pointer ${
+                        hallName === cat
+                          ? "bg-primary text-white font-bold"
+                          : "bg-surface hover:bg-border/60 text-muted border border-border"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+                <input type="text" required value={hallName} onChange={(e) => setHallName(e.target.value)} placeholder="e.g. Open Marriage Lawn / Garden" className="w-full px-3.5 py-2.5 bg-surface rounded-xl border border-border focus:border-primary outline-none" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
