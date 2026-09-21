@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import {
   GlassWater, Clock, CheckCircle2, XCircle, ShieldCheck, Phone, Mail, MapPin, CreditCard,
   Building2, AlertTriangle, IndianRupee, Calendar, Eye, LogOut, RefreshCw, X, Users,
-  TrendingUp, Settings, Plus, Trash2, Edit3, Loader2, Check
+  TrendingUp, Settings, Plus, Trash2, Edit3, Loader2, Check, Image as ImageIcon
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
