@@ -125,7 +125,7 @@ export default async function BanquetDetailPage({ params }: PageProps) {
             )}
           </div>
 
-          <h1 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white mb-2">
+          <h1 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-extrabold !text-white drop-shadow-md mb-2">
             {banquet.name}
           </h1>
 

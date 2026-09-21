@@ -76,27 +76,28 @@ export default function BanquetCard({ banquet }: BanquetCardProps) {
           alt={banquet.name}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+        {/* Strong protection scrim so text is always 100% visible on any background */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent pointer-events-none" />
 
         {/* Guest Capacity Badge */}
-        <div className="absolute top-3 right-3 px-3 py-1 bg-black/60 backdrop-blur-md text-white rounded-full flex items-center gap-1.5 text-xs font-bold shadow-md">
+        <div className="absolute top-3 right-3 px-3 py-1 bg-black/70 backdrop-blur-md !text-white rounded-full flex items-center gap-1.5 text-xs font-bold shadow-md border border-white/10">
           <Users className="w-3.5 h-3.5 text-primary" />
-          {capacity} Guests
+          <span className="!text-white">{capacity} Guests</span>
         </div>
 
         {Boolean(Number(banquet.featured)) && (
-          <div className="absolute top-3 left-3 px-3 py-1 bg-primary text-white rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm">
+          <div className="absolute top-3 left-3 px-3 py-1 bg-primary !text-white rounded-full text-[10px] font-bold uppercase tracking-wider shadow-md">
             Featured Venue
           </div>
         )}
 
-        <div className="absolute bottom-3 left-3 right-3 text-white">
-          <h3 className="font-heading font-bold text-lg leading-snug line-clamp-1 group-hover:text-primary-light transition-colors">
+        <div className="absolute bottom-3 left-3 right-3 z-10">
+          <h3 className="font-heading font-black text-lg sm:text-xl leading-snug line-clamp-1 !text-white group-hover:!text-primary-light drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)] transition-colors">
             {banquet.name}
           </h3>
-          <div className="flex items-center gap-1.5 text-white/80 text-xs mt-0.5">
+          <div className="flex items-center gap-1.5 text-xs mt-1 font-medium drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
             <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-            <span className="line-clamp-1">{locationText}</span>
+            <span className="line-clamp-1 !text-white/90">{locationText}</span>
           </div>
         </div>
       </div>
