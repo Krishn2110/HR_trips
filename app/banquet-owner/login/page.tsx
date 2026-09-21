@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Mail, Lock, Loader2, ArrowLeft, X, KeyRound, CheckCircle2 } from "lucide-react";
+import { Mail, Lock, Loader2, ArrowLeft, X, KeyRound, CheckCircle2, AlertCircle } from "lucide-react";
 
 export default function BanquetOwnerLoginPage() {
   const router = useRouter();
@@ -64,10 +64,17 @@ export default function BanquetOwnerLoginPage() {
         }
         router.push("/banquet-owner");
       } else {
-        throw new Error(result.message || "Invalid credentials.");
+        if (response.status === 401) {
+          setError(
+            result.message ||
+            "Invalid email address or password. If you have not registered your banquet venue yet, please complete registration first."
+          );
+        } else {
+          setError(result.message || "Invalid credentials.");
+        }
       }
     } catch (err: any) {
-      setError(err?.message || "Login failed. Please verify your credentials and try again.");
+      setError(err?.message || "Login failed. Please verify your credentials and network connection.");
     } finally {
       setIsLoading(false);
     }
@@ -205,8 +212,26 @@ export default function BanquetOwnerLoginPage() {
           </div>
 
           {error && (
-            <div className="mb-5 bg-red-50 border border-red-200 rounded-xl p-3 text-red-700 text-xs text-center font-medium">
-              {error}
+            <div className="mb-5 bg-red-50 border border-red-200 rounded-xl p-3.5 text-xs text-red-700 font-medium space-y-2.5">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <div className="flex-1 leading-relaxed">
+                  <span className="font-bold text-red-900 block mb-0.5">Authentication Failed</span>
+                  {error}
+                </div>
+              </div>
+              <div className="pt-2 border-t border-red-200/60 flex items-center justify-between text-[11px]">
+                <Link href="/banquet-registration" className="font-bold text-primary hover:underline flex items-center gap-1">
+                  Register Banquet Hall &rarr;
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setFpStep(1)}
+                  className="text-muted hover:text-ink font-semibold underline cursor-pointer"
+                >
+                  Forgot Password?
+                </button>
+              </div>
             </div>
           )}
 

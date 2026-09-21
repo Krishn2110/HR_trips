@@ -167,12 +167,29 @@ export default function BanquetRegistrationPage() {
       if (selectedFiles.bathroomPic) formData.append("bathroomPic", selectedFiles.bathroomPic);
       if (selectedFiles.interiorExteriorPic) formData.append("interiorExteriorPic", selectedFiles.interiorExteriorPic);
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/banquets/register.php`, {
+      // Safe API helpers
+      const getApiUrl = (endpoint: string) => {
+        const base = (process.env.NEXT_PUBLIC_API_URL || "http://localhost/hrtrips/api").replace(/\/+$/, "");
+        return `${base}/${endpoint.replace(/^\/+/, "")}`;
+      };
+
+      const parseResponse = async (res: Response) => {
+        const rawText = await res.text();
+        const firstBrace = rawText.indexOf("{");
+        const lastBrace = rawText.lastIndexOf("}");
+        if (firstBrace !== -1 && lastBrace !== -1) {
+          const jsonText = rawText.substring(firstBrace, lastBrace + 1);
+          return JSON.parse(jsonText);
+        }
+        throw new Error("Invalid server response");
+      };
+
+      const response = await fetch(getApiUrl("banquets/register.php"), {
         method: "POST",
         body: formData, 
       });
 
-      const result = await response.json();
+      const result = await parseResponse(response);
 
       if (!response.ok || result.status === "error") {
         throw new Error(result.message || "Banquet registration failed.");
@@ -226,14 +243,20 @@ export default function BanquetRegistrationPage() {
               </div>
               <h2 className="font-heading font-bold text-2xl text-ink mb-3">Banquet Registration Submitted!</h2>
               <p className="text-muted text-sm max-w-md mx-auto mb-8">
-                Your venue details and photos have been submitted. Once verified, your banquet will be activated.
+                Your venue details and photos have been submitted. Once verified, your banquet will be activated. You can log into your Banquet Owner Portal to track verification status and manage bookings.
               </p>
               <div className="flex flex-wrap gap-4 justify-center">
-                <button onClick={() => { setStatus("idle"); setCurrentStep(1); }} className="px-6 py-3 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl text-xs cursor-pointer">
+                <Link
+                  href="/banquet-owner/login"
+                  className="px-6 py-3 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-primary/20 transition-all cursor-pointer"
+                >
+                  Go to Banquet Owner Login
+                </Link>
+                <button onClick={() => { setStatus("idle"); setCurrentStep(1); }} className="px-6 py-3 bg-surface hover:bg-border/60 text-ink font-bold rounded-xl text-xs border border-border cursor-pointer transition-colors">
                   Register Another Venue
                 </button>
-                <Link href="/services" className="px-6 py-3 border border-border text-ink hover:bg-surface font-semibold rounded-xl text-xs">
-                  Return to Services
+                <Link href="/banquet-booking" className="px-6 py-3 border border-border text-muted hover:text-ink hover:bg-surface font-semibold rounded-xl text-xs transition-colors">
+                  View Banquet Halls
                 </Link>
               </div>
             </div>
