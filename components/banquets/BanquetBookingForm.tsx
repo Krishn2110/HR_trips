@@ -44,7 +44,7 @@ export default function BanquetBookingForm({ banquet }: BanquetBookingFormProps)
     customer_phone: "",
     event_type: "Marriage / Wedding",
     event_date: "",
-    guest_count: 200,
+    guest_count: 200 as number | string,
     food_preference: "Veg Only",
     special_requests: "",
   });
@@ -59,7 +59,7 @@ export default function BanquetBookingForm({ banquet }: BanquetBookingFormProps)
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "guest_count" ? Math.max(1, Number(value)) : value,
+      [name]: name === "guest_count" ? (value === "" ? "" : Number(value)) : value,
     }));
   };
 
@@ -71,7 +71,7 @@ export default function BanquetBookingForm({ banquet }: BanquetBookingFormProps)
   };
 
   const currentCateringRate = getCateringRate();
-  const guestCount = Number(formData.guest_count) || 1;
+  const guestCount = formData.guest_count === "" ? 0 : Math.max(0, Number(formData.guest_count));
   const cateringTotal = currentCateringRate * guestCount;
   
   // Final Estimated Total = (Per Day Rent) + (Guests * Plate Rate)
@@ -92,7 +92,7 @@ export default function BanquetBookingForm({ banquet }: BanquetBookingFormProps)
         customer_phone: formData.customer_phone,
         event_type: formData.event_type,
         event_date: formData.event_date,
-        guest_count: guestCount,
+        guest_count: Math.max(1, guestCount || 100),
         food_preference: formData.food_preference,
         special_requests: formData.special_requests,
         total_amount: estimatedTotal,
@@ -235,10 +235,16 @@ export default function BanquetBookingForm({ banquet }: BanquetBookingFormProps)
               type="number"
               name="guest_count"
               required
-              min={50}
+              min={1}
               max={maxCapacity * 1.5}
+              placeholder="e.g. 200"
               value={formData.guest_count}
               onChange={handleChange}
+              onBlur={() => {
+                if (formData.guest_count === "" || Number(formData.guest_count) < 1) {
+                  setFormData((prev) => ({ ...prev, guest_count: 100 }));
+                }
+              }}
               className="w-full px-3.5 py-2.5 bg-surface rounded-xl border border-border focus:border-primary outline-none"
             />
           </div>
